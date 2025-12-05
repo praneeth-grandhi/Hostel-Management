@@ -37,19 +37,18 @@ const AdminRegister = () => {
   // new states for OTP + post-registration branching
   const [step, setStep] = useState('form') // 'form' | 'otp' | 'post'
   const [otp, setOtp] = useState('')
-  const [postTab, setPostTab] = useState('join') // 'join' | 'register'
 
-  // small demo data for join-existing-hostel flow
-  const demoHostels = [
-    { id: 1, name: 'Green Valley Hostel', area: 'MG Road' },
-    { id: 2, name: 'Sunrise PG', area: 'Park Street' },
-    { id: 3, name: 'Campus Stay', area: 'Near College' },
-  ]
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedHostel, setSelectedHostel] = useState(null)
-  // show only a single pending request summary (don't keep appending list items)
-  const [pendingRequest, setPendingRequest] = useState(null)
-  const [registrations, setRegistrations] = useState([])
+  // Hostel registration fields (now mandatory in Step 1)
+  const [hostelName, setHostelName] = useState('')
+  const [hostelAddress, setHostelAddress] = useState('')
+  const [hostelCity, setHostelCity] = useState('')
+  const [hostelState, setHostelState] = useState('')
+  const [hostelCountry, setHostelCountry] = useState('')
+  const [hostelZipCode, setHostelZipCode] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [totalRooms, setTotalRooms] = useState('')
+  const [floors, setFloors] = useState('')
+  const [businessHours, setBusinessHours] = useState('')
 
   const passwordStrength = (pwd) => {
     let score = 0
@@ -62,6 +61,7 @@ const AdminRegister = () => {
 
   const validate = () => {
     const e = {}
+    // Admin personal fields
     if (!firstName.trim()) e.firstName = 'First name is required'
     if (!lastName.trim()) e.lastName = 'Last name is required'
     if (!email.trim()) e.email = 'Email is required'
@@ -78,6 +78,15 @@ const AdminRegister = () => {
     else if (password.length < 8) e.password = 'Password must be at least 8 characters'
     if (password !== confirmPassword) e.confirmPassword = 'Passwords do not match'
     if (!agree) e.agree = 'You must accept Terms & Privacy'
+
+    // Hostel fields (now mandatory)
+    if (!hostelName.trim()) e.hostelName = 'Hostel name is required'
+    if (!hostelAddress.trim()) e.hostelAddress = 'Hostel address is required'
+    if (!hostelCity.trim()) e.hostelCity = 'Hostel city is required'
+    if (!hostelState.trim()) e.hostelState = 'Hostel state is required'
+    if (!hostelCountry.trim()) e.hostelCountry = 'Hostel country is required'
+    if (!hostelZipCode.trim()) e.hostelZipCode = 'Hostel zip code is required'
+
     return e
   }
 
@@ -94,6 +103,15 @@ const AdminRegister = () => {
       setSuccess(true)
       setStep('otp') // move to OTP step
       // in real flow: send OTP to phone/email here
+      console.log('Admin registration data:', {
+        firstName, lastName, email, phone, countryCode, secondaryPhone,
+        displayName, bio, address, city, state, country, zipCode,
+        profilePicture, aadhar, pan, gst, FSSAI, proofOfAddressDocument,
+      })
+      console.log('Hostel registration data:', {
+        hostelName, hostelAddress, hostelCity, hostelState, hostelCountry, hostelZipCode,
+        contactPhone, totalRooms, floors, businessHours,
+      })
     }, 900)
   }
 
@@ -103,70 +121,9 @@ const AdminRegister = () => {
     setStep('post')
   }
 
-  // Join existing hostel handlers
-  const filteredHostels = demoHostels.filter(
-    (h) =>
-      h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      h.area.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Join existing hostel handlers (REMOVED)
 
-  const requestAccess = () => {
-    if (!selectedHostel) return
-    // store only the current pending request (show it once)
-    setPendingRequest({ hostel: selectedHostel, status: 'pending', requestedAt: new Date().toISOString() })
-    setSelectedHostel(null)
-    setSearchQuery('')
-  }
-
-  // Register new hostel handler (minimal)
-  const [hostelName, setHostelName] = useState('')
-  const [hostelAddress, setHostelAddress] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
-  const [hostelType, setHostelType] = useState('hostel')
-  const [totalRooms, setTotalRooms] = useState('')
-  const [floors, setFloors] = useState('')
-  const [businessHours, setBusinessHours] = useState('')
-
-  // validation state for hostel registration
-  const [hostelErrors, setHostelErrors] = useState([])
-
-  const submitHostelRegistration = (ev) => {
-    ev.preventDefault()
-    // validate required fields and list any missing ones
-    const missing = []
-    if (!hostelName.trim()) missing.push('Hostel name')
-    if (!hostelAddress.trim()) missing.push('Address')
-
-    if (missing.length) {
-      // surface the missing fields so user can fix them
-      setHostelErrors(missing)
-      return
-    }
-
-    setHostelErrors([])
-    const id = registrations.length + 1
-    setRegistrations((r) => [
-      ...r,
-      {
-        id,
-        name: hostelName,
-        address: hostelAddress,
-        contactPhone: contactPhone,
-        type: hostelType,
-        totalRooms: totalRooms,
-        floors: floors,
-        businessHours,
-        status: 'pending',
-      },
-    ])
-    setHostelName('')
-    setHostelAddress('')
-    setContactPhone('')
-    setHostelType('hostel')
-    setTotalRooms('')
-    setFloors('')
-    setBusinessHours('')
-  }
+  // Register new hostel handler (REMOVED - now part of Step 1)
 
   // file handlers
   useEffect(() => {
@@ -387,6 +344,148 @@ const AdminRegister = () => {
                 </div>
               </div>
 
+              {/* HOSTEL REGISTRATION SECTION - NOW MANDATORY PART OF STEP 1 */}
+              <div className="pt-6 border-t border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Hostel Information *</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Every admin must register at least one hostel during signup.
+                </p>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Hostel name *</label>
+                  <input
+                    type="text"
+                    value={hostelName}
+                    onChange={(e) => setHostelName(e.target.value)}
+                    className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                      errors.hostelName ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    placeholder="e.g. Green Valley Hostel"
+                  />
+                  {errors.hostelName && <p className="mt-1 text-xs text-red-600">{errors.hostelName}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mt-4">Address *</label>
+                  <input
+                    type="text"
+                    value={hostelAddress}
+                    onChange={(e) => setHostelAddress(e.target.value)}
+                    className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                      errors.hostelAddress ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    placeholder="123 Main Street"
+                  />
+                  {errors.hostelAddress && <p className="mt-1 text-xs text-red-600">{errors.hostelAddress}</p>}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">City *</label>
+                    <input
+                      type="text"
+                      value={hostelCity}
+                      onChange={(e) => setHostelCity(e.target.value)}
+                      className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                        errors.hostelCity ? 'border-red-400' : 'border-gray-200'
+                      }`}
+                      placeholder="New York"
+                    />
+                    {errors.hostelCity && <p className="mt-1 text-xs text-red-600">{errors.hostelCity}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">State *</label>
+                    <input
+                      type="text"
+                      value={hostelState}
+                      onChange={(e) => setHostelState(e.target.value)}
+                      className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                        errors.hostelState ? 'border-red-400' : 'border-gray-200'
+                      }`}
+                      placeholder="NY"
+                    />
+                    {errors.hostelState && <p className="mt-1 text-xs text-red-600">{errors.hostelState}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Zip Code *</label>
+                    <input
+                      type="text"
+                      value={hostelZipCode}
+                      onChange={(e) => setHostelZipCode(e.target.value)}
+                      className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                        errors.hostelZipCode ? 'border-red-400' : 'border-gray-200'
+                      }`}
+                      placeholder="10001"
+                    />
+                    {errors.hostelZipCode && <p className="mt-1 text-xs text-red-600">{errors.hostelZipCode}</p>}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mt-4">Country *</label>
+                  <input
+                    type="text"
+                    value={hostelCountry}
+                    onChange={(e) => setHostelCountry(e.target.value)}
+                    className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                      errors.hostelCountry ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    placeholder="United States"
+                  />
+                  {errors.hostelCountry && <p className="mt-1 text-xs text-red-600">{errors.hostelCountry}</p>}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Contact phone (optional)</label>
+                    <input
+                      type="tel"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200"
+                      placeholder="+91 98765 43210"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Business hours (optional)</label>
+                    <input
+                      type="text"
+                      value={businessHours}
+                      onChange={(e) => setBusinessHours(e.target.value)}
+                      className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200"
+                      placeholder="e.g. 9:00 - 21:00"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Number of rooms (optional)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={totalRooms}
+                      onChange={(e) => setTotalRooms(e.target.value)}
+                      className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Number of floors (optional)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={floors}
+                      onChange={(e) => setFloors(e.target.value)}
+                      className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Profile picture upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Profile picture (optional)</label>
@@ -557,160 +656,64 @@ const AdminRegister = () => {
         </div>
       )}
 
-      {/* POST-REGISTRATION: join existing OR register new hostel */}
+      {/* POST-REGISTRATION: Success message */}
       {step === 'post' && (
-        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="px-6 py-6">
-            <h2 className="text-2xl font-semibold mb-4">Next step — Join or Register Hostel</h2>
-
-            <div className="flex items-center gap-3 mb-6">
-              <button
-                onClick={() => setPostTab('join')}
-                className={`px-4 py-2 rounded-md ${postTab === 'join' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-              >
-                Join Existing Hostel
-              </button>
-              <button
-                onClick={() => setPostTab('register')}
-                className={`px-4 py-2 rounded-md ${postTab === 'register' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-              >
-                Register New Hostel
-              </button>
+        <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="px-6 py-8">
+            <div className="text-center">
+              <div className="text-5xl mb-4">✓</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
+              <p className="text-gray-600 mb-6">Your admin account and hostel have been registered successfully.</p>
             </div>
 
-            {postTab === 'join' && (
-              <div className="space-y-4">
-                <label className="block">
-                  <input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search hostels by name or area"
-                    className="w-full px-4 py-3 border rounded-lg"
-                  />
-                </label>
-
-                <div className="grid gap-2">
-                  {filteredHostels.map((h) => (
-                    <button
-                      key={h.id}
-                      type="button"
-                      onClick={() => setSelectedHostel(h)}
-                      className={`text-left p-3 rounded-lg border ${selectedHostel?.id === h.id ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}
-                    >
-                      <div className="font-medium">{h.name}</div>
-                      <div className="text-sm text-gray-500">{h.area}</div>
-                    </button>
-                  ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+              {/* Admin Summary */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-semibold text-blue-900 mb-3">Admin Account</h3>
+                <div className="space-y-2 text-sm text-blue-800">
+                  <div><span className="font-medium">Name:</span> {firstName} {lastName}</div>
+                  <div><span className="font-medium">Email:</span> {email}</div>
+                  <div><span className="font-medium">Phone:</span> {countryCode} {phone}</div>
+                  <div><span className="font-medium">Location:</span> {city}, {state}, {country}</div>
                 </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={requestAccess}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-                    disabled={!selectedHostel}
-                  >
-                    Request Access
-                  </button>
-                  <button onClick={() => { setSelectedHostel(null); setSearchQuery('') }} className="px-4 py-2 border rounded-lg">Clear</button>
-                </div>
-
-                {pendingRequest && (
-                  <div className="mt-4 p-4 rounded-md bg-yellow-50 border border-yellow-100">
-                    <h3 className="font-medium mb-1">Access request pending</h3>
-                    <div className="text-sm text-gray-700">
-                      You requested access to <span className="font-medium">{pendingRequest.hostel.name}</span> —{' '}
-                      <span className="italic text-gray-500">{pendingRequest.status}</span>.
-                    </div>
-                  </div>
-                )}
-                {/* show hostel registration validation errors, if any */}
-                {hostelErrors && hostelErrors.length > 0 && (
-                  <div className="mt-4 p-3 rounded-md bg-red-50 border border-red-100 text-sm text-red-700">
-                    Please provide: {hostelErrors.join(', ')}.
-                  </div>
-                )}
-              </div>
-            )}
-
-            {postTab === 'register' && (
-              <form onSubmit={submitHostelRegistration} className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-700">Hostel name *</label>
-                  <input value={hostelName} onChange={(e) => setHostelName(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-700">Address *</label>
-                  <input value={hostelAddress} onChange={(e) => setHostelAddress(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-700">Contact phone</label>
-                    <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-700">Type</label>
-                    <select value={hostelType} onChange={(e) => setHostelType(e.target.value)} className="w-full px-4 py-3 border rounded-lg">
-                      <option value="hostel">Hostel</option>
-                      <option value="pg">PG</option>
-                      <option value="hotel">Hotel</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-700">Number of rooms</label>
-                    <input type="number" min="0" value={totalRooms} onChange={(e) => setTotalRooms(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-700">Number of floors</label>
-                    <input type="number" min="0" value={floors} onChange={(e) => setFloors(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-700">Business hours (optional)</label>
-                    <input value={businessHours} onChange={(e) => setBusinessHours(e.target.value)} className="w-full px-4 py-3 border rounded-lg" placeholder="e.g. 9:00 - 21:00" />
-                  </div>
-                </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Proof of address/ownership</label>
-                <p className='text-xs font-medium text-gray-700'>Documents accepted: (Rent Agreement + NOC) / Property tax receipt / Electricity bill / Water bill / Muncipal tax receipt</p>
-                <label className="mt-2 inline-flex items-center gap-3 px-3 py-2 bg-gray-100 rounded cursor-pointer">
-                  <input type="file" accept=".jpg,.jpeg,.png,.pdf" className="hidden" onChange={(e) => setProofOfAddressDocument(e.target.files?.[0] || null)} />
-                  <span className="text-sm text-gray-700">Upload supporting document</span>
-                </label>
-                {proofOfAddressDocument && <p className="text-xs mt-1 text-gray-600">{proofOfAddressDocument.name}</p>}
               </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">GST / FSSAI (optional)</label>
-                  <input value={gst} onChange={(e) => setGst(e.target.value)} className="mt-1 block w-full px-4 py-2 border rounded-lg" placeholder="GST number" />
-                  <input value={FSSAI} onChange={(e) => setFSSAI(e.target.value)} className="mt-2 block w-full px-4 py-2 border rounded-lg" placeholder="FSSAI number" />
+              {/* Hostel Summary */}
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <h3 className="font-semibold text-green-900 mb-3">Hostel Details</h3>
+                <div className="space-y-2 text-sm text-green-800">
+                  <div><span className="font-medium">Name:</span> {hostelName}</div>
+                  <div><span className="font-medium">Address:</span> {hostelAddress}</div>
+                  <div><span className="font-medium">Location:</span> {hostelCity}, {hostelState}, {hostelCountry}</div>
+                  <div><span className="font-medium">Rooms:</span> {totalRooms || 'Not specified'}</div>
                 </div>
+              </div>
+            </div>
 
-                <div className="flex gap-3">
-                  <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg">Submit Registration</button>
-                </div>
+            <div className="mt-8 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+              <h3 className="font-semibold text-yellow-900 mb-2">Next Steps</h3>
+              <ul className="text-sm text-yellow-800 space-y-1">
+                <li>• You will receive a verification OTP on your phone within 2 minutes</li>
+                <li>• Complete your KYC documents in the admin dashboard</li>
+                <li>• Set up hostel rooms, amenities, and pricing</li>
+                <li>• Your first hostel is now ready for bookings</li>
+              </ul>
+            </div>
 
-                {registrations.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="font-medium mb-2">Registrations</h3>
-                    <ul className="space-y-2">
-                      {registrations.map((r) => (
-                        <li key={r.id} className="text-sm text-gray-700">
-                          {r.name} — <span className="italic text-gray-500">{r.status}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </form>
-            )}
+            <div className="mt-8 flex gap-3">
+              <Link
+                to="/signin"
+                className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium text-center hover:bg-blue-700"
+              >
+                Go to Sign In
+              </Link>
+              <Link
+                to="/"
+                className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium text-center hover:bg-gray-50"
+              >
+                Back to Home
+              </Link>
+            </div>
           </div>
         </div>
       )}

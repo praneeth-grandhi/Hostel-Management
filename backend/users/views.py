@@ -17,3 +17,5 @@ class UserProfile(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     lookup_field = 'id'
     permission_classes = [IsAuthenticated]
+
+    

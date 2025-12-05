@@ -26,11 +26,6 @@ class Users(models.Model):
 
 
 class Admin(models.Model):
-    ROLE_CHOICES = [
-        ('superadmin', 'Super Admin'),
-        ('coadmin', 'Co-Admin'),
-    ]
-
     # Basic info
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
@@ -63,7 +58,7 @@ class Admin(models.Model):
     
     # Security
     password = models.CharField(max_length=128)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='superadmin')
+    role = models.CharField(max_length=10, default='superadmin')
     
     # # Created by (for co-admins, who created them)
     # created_by = models.ForeignKey(
@@ -87,11 +82,6 @@ class Admin(models.Model):
 
 
 class Hostel(models.Model):
-    HOSTEL_TYPE_CHOICES = [
-        ('hostel', 'Hostel'),
-        ('pg', 'PG'),
-        ('hotel', 'Hotel'),
-    ]
 
     # Basic Info
     name = models.CharField(max_length=100)
@@ -106,7 +96,6 @@ class Hostel(models.Model):
     contact_email = models.EmailField()
     
     # Property Info
-    hostel_type = models.CharField(max_length=10, choices=HOSTEL_TYPE_CHOICES, default='hostel')
     total_rooms = models.IntegerField()
     floors = models.IntegerField()
     business_hours = models.CharField(max_length=50, blank=True)

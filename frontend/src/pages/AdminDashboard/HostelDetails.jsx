@@ -22,7 +22,6 @@ const sampleHostels = [
     address: '12 MG Road, Cityville',
     contactPhone: '+91 98765 43210',
     contactEmail: 'green@hostel.example',
-    type: 'hostel',
     totalRooms: 24,
     floors: 3,
     businessHours: '08:00 - 22:00',
@@ -36,7 +35,6 @@ const sampleHostels = [
     address: '45 Park Street, Cityville',
     contactPhone: '+91 91234 56789',
     contactEmail: 'sunrise@pg.example',
-    type: 'pg',
     totalRooms: 18,
     floors: 2,
     businessHours: '09:00 - 21:00',
@@ -51,7 +49,6 @@ const blankForm = {
   address: '',
   contactPhone: '',
   contactEmail: '',
-  type: 'hostel',
   totalRooms: '',
   floors: '',
   businessHours: '',
@@ -85,7 +82,6 @@ const HostelDetails = () => {
       address: h.address || '',
       contactPhone: h.contactPhone || '',
       contactEmail: h.contactEmail || '',
-      type: h.type || 'hostel',
       totalRooms: h.totalRooms || '',
       floors: h.floors || '',
       businessHours: h.businessHours || '',
@@ -182,8 +178,6 @@ const HostelDetails = () => {
               <div className="font-medium">{h.name}</div>
               <div className="text-xs text-gray-500 truncate">{h.address}</div>
               <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-gray-400">{h.type}</span>
-                <span className="text-xs text-gray-400">·</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -241,16 +235,7 @@ const HostelDetails = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Type</label>
-              <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded border-gray-200">
-                <option value="hostel">Hostel</option>
-                <option value="pg">PG</option>
-                <option value="hotel">Hotel</option>
-              </select>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700">Total rooms</label>
               <input type="number" min="0" value={form.totalRooms} onChange={(e) => setForm((f) => ({ ...f, totalRooms: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded border-gray-200" />
