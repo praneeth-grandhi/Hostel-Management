@@ -48,7 +48,7 @@ function Navbar() {
   }
 
   // Owner/admin: clicking profile goes directly to admin dashboard
-  if (auth && auth.role === 'owner') {
+  if (auth && (auth.role === 'superadmin' || auth.role === 'coadmin')) {
     return (
       <nav className="bg-gray-800 p-4">
         <div className="container mx-auto flex items-center justify-between">
@@ -117,8 +117,8 @@ function Navbar() {
               </button>
 
               {open && (
-                <div className="absolute right-0 mt-12 w-56 bg-white rounded-md shadow-lg border overflow-hidden z-40">
-                  <Link to="/userDashboard/myProfile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">My profile</Link>
+                <div className="absolute right-0 mt-60 w-56 bg-white rounded-md shadow-lg border overflow-hidden z-40">
+                  <Link to="/userDashboard/profileSettings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">My Profile</Link>
                   <Link to="/userDashboard/pastBookings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Past bookings</Link>
                   <Link to="/userDashboard/book" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Book a hostel</Link>
                   <Link to="/userDashboard/myHostel" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">My hostel</Link>

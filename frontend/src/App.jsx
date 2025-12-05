@@ -20,8 +20,8 @@ import NotificationAndCommunication from './pages/AdminDashboard/Notification&Co
 import SecurityAndAccess from './pages/AdminDashboard/SecurityAndAccess.jsx'
 import PastBookings from './pages/UserDashboard/PastBookings.jsx'
 import MyHostel from './pages/UserDashboard/MyHostel.jsx'
-import UserProfile from './pages/UserDashboard/UserProfile.jsx'
 import Footer from './components/Footer.jsx';
+import ProfileSettings from './pages/UserDashboard/ProfileSettings.jsx';
 
 function App() {
 
@@ -51,8 +51,9 @@ function App() {
         </Route>
         <Route path="/userDashboard/pastBookings" element={<PastBookings />} />
         <Route path="/userDashboard/myHostel" element={<MyHostel />} />
-        <Route path="/userDashboard/myProfile" element={<UserProfile />} />
+        <Route path="/userDashboard/myProfile" element={<ProfileSettings />} />
         <Route path="/userDashboard/book" element={<HomePage />} />
+        <Route path="/userDashboard/profileSettings" element={<ProfileSettings />} />
       </Routes> 
       <Footer />
     </>

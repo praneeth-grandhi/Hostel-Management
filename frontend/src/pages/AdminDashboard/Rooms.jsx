@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 
 const STORAGE_KEY = 'hostelManagement:rooms_v4'
 const SHARING_OPTIONS = ['single', 'double', 'triple']
-const STATUS_OPTIONS = ['available', 'under maintenance', 'occupied']
+const STATUS_OPTIONS = ['available', 'maintenance', 'occupied']
 
 function loadRooms() {
   try {

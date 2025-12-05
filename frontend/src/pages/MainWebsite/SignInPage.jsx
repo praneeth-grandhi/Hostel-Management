@@ -2,21 +2,36 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 
 const SignInPage = () => {
-  const [role, setRole] = useState('user') // 'user' or 'owner'
+  const [role, setRole] = useState('user') // 'user' or 'admin'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [adminType, setAdminType] = useState(null) // 'superadmin' or 'coadmin' (determined after login)
   const navigate = useNavigate()
 
   const validate = () => {
     const e = {}
-    if (!email.trim()) e.email = role === 'owner' ? 'Owner ID / email is required' : 'Email is required'
+    if (!email.trim()) e.email = role === 'admin' ? 'Admin email is required' : 'Email is required'
     else if (role === 'user' && !/^\S+@\S+\.\S+$/.test(email)) e.email = 'Enter a valid email'
     if (!password) e.password = 'Password is required'
     else if (password.length < 6) e.password = 'Password must be at least 6 characters'
     return e
+  }
+
+  // Demo function: Check if user is superadmin or coadmin (would come from backend)
+  const checkAdminType = (email) => {
+    // In a real app, backend would return the role based on database lookup
+    // For demo, check if email exists in owners list (coadmin) or if it's a known super admin
+    try {
+      const ownersData = JSON.parse(localStorage.getItem('hostelManagement:owners') || '[]')
+      const isCoAdmin = ownersData.some(owner => owner.email === email.toLowerCase())
+      if (isCoAdmin) return 'coadmin'
+    } catch (err) { /* ignore */ }
+    
+    // If not found in co-admins, assume super admin
+    return 'superadmin'
   }
 
   const handleSubmit = async (ev) => {
@@ -28,16 +43,23 @@ const SignInPage = () => {
     setLoading(true)
     setSuccess(false)
 
-    // Demo: accept any valid owner credentials (no localStorage check)
-    if (role === 'owner') {
-      // as long as validation passed accept and programmatically navigate to admin route
+    // Admin login
+    if (role === 'admin') {
+      // Determine if super admin or co-admin
+      const detectedAdminType = checkAdminType(email)
+      setAdminType(detectedAdminType)
+      
       setTimeout(() => {
         setLoading(false)
         setSuccess(true)
         try {
           localStorage.setItem(
             'hostelManagement:auth',
-            JSON.stringify({ role: 'owner', authenticated: true, at: new Date().toISOString() })
+            JSON.stringify({ 
+              role: detectedAdminType, // 'superadmin' or 'coadmin'
+              authenticated: true, 
+              at: new Date().toISOString() 
+            })
           )
           // notify app about auth change so Navbar updates immediately
           window.dispatchEvent(new Event('hostelAuthChange'))
@@ -54,12 +76,17 @@ const SignInPage = () => {
       try {
         localStorage.setItem(
           'hostelManagement:auth',
-          JSON.stringify({ role: 'user', authenticated: true, email: email || '', at: new Date().toISOString() })
+          JSON.stringify({ 
+            role: 'guest', 
+            authenticated: true, 
+            email: email || '', 
+            at: new Date().toISOString() 
+          })
         )
         // notify app about auth change so Navbar updates immediately
         window.dispatchEvent(new Event('hostelAuthChange'))
       } catch (err) { /* ignore storage errors */ }
-      // navigate to user area (adjust route if you have a specific user dashboard)
+      // navigate to user area
       navigate('/')
     }, 400)
   }
@@ -70,14 +97,14 @@ const SignInPage = () => {
         {/* Left: role-dependent visual panel */}
         <div
           className={`hidden md:flex flex-col justify-center p-10 text-white ${
-            role === 'owner'
+            role === 'admin'
               ? 'bg-linear-to-br from-rose-600 to-pink-600'
               : 'bg-linear-to-br from-blue-600 to-indigo-700'
           }`}
         >
-          {role === 'owner' ? (
+          {role === 'admin' ? (
             <>
-              <h2 className="text-3xl font-bold mb-3">Welcome, Owner</h2>
+              <h2 className="text-3xl font-bold mb-3">Welcome, Admin</h2>
               <p className="text-lg opacity-90 mb-6">
                 Access your hostel dashboard — manage rooms, bookings and view earnings.
               </p>
@@ -139,24 +166,24 @@ const SignInPage = () => {
 
             <button
               type="button"
-              onClick={() => setRole('owner')}
+              onClick={() => setRole('admin')}
               className={`px-3 py-1.5 rounded-md text-sm ${
-                role === 'owner'
+                role === 'admin'
                   ? 'text-rose-600 font-semibold border-b-2 border-rose-600'
                   : 'text-gray-600'
               }`}
-              aria-pressed={role === 'owner'}
+              aria-pressed={role === 'admin'}
             >
-              Owner
+              Admin
             </button>
           </div>
 
           <h1 className="text-3xl font-semibold text-gray-800 mb-2">
-            {role === 'owner' ? 'Owner Sign In' : 'Sign In'}
+            {role === 'admin' ? 'Admin Sign In' : 'Sign In'}
           </h1>
           <p className="text-sm text-gray-500 mb-6">
-            {role === 'owner'
-              ? 'Sign in with your owner ID to access hostel controls.'
+            {role === 'admin'
+              ? 'Sign in with your admin email to access hostel controls.'
               : 'Sign in to manage bookings and view your hostel details.'}
           </p>
 
@@ -169,7 +196,7 @@ const SignInPage = () => {
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <label className="block">
               <span className="text-sm font-medium text-gray-700">
-                {role === 'owner' ? 'Owner ID / Email or Phone' : 'Email'}
+                {role === 'admin' ? 'Admin Email' : 'Email'}
               </span>
               <input
                 type="text"
@@ -220,10 +247,21 @@ const SignInPage = () => {
           </form>
 
           <div className="mt-6 text-sm text-center text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-blue-600 hover:underline">
-              Register
-            </Link>
+            {role === 'admin' ? (
+              <>
+                New admin?{' '}
+                <Link to="/adminRegister" className="text-blue-600 hover:underline">
+                  Register here
+                </Link>
+              </>
+            ) : (
+              <>
+                Don't have an account?{' '}
+                <Link to="/register" className="text-blue-600 hover:underline">
+                  Register
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>

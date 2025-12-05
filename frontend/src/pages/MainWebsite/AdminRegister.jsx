@@ -6,9 +6,15 @@ const AdminRegister = () => {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [countryCode, setCountryCode] = useState('')
   const [secondaryPhone, setSecondaryPhone] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
+  const [address, setAddress] = useState('')
+  const [country, setCountry] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [zipCode, setZipCode] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
@@ -62,6 +68,12 @@ const AdminRegister = () => {
     else if (!/^\S+@\S+\.\S+$/.test(email)) e.email = 'Enter a valid email'
     if (!phone.trim()) e.phone = 'Mobile phone is required'
     else if (!/^[0-9]{7,15}$/.test(phone.replace(/\D/g, ''))) e.phone = 'Enter a valid phone number'
+    if (!countryCode.trim()) e.countryCode = 'Country code is required'
+    if (!address.trim()) e.address = 'Address is required'
+    if (!country.trim()) e.country = 'Country is required'
+    if (!city.trim()) e.city = 'City is required'
+    if (!state.trim()) e.state = 'State is required'
+    if (!zipCode.trim()) e.zipCode = 'Zip code is required'
     if (!password) e.password = 'Password is required'
     else if (password.length < 8) e.password = 'Password must be at least 8 characters'
     if (password !== confirmPassword) e.confirmPassword = 'Passwords do not match'
@@ -109,10 +121,10 @@ const AdminRegister = () => {
   // Register new hostel handler (minimal)
   const [hostelName, setHostelName] = useState('')
   const [hostelAddress, setHostelAddress] = useState('')
-  const [hostelPhone, setHostelPhone] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
   const [hostelType, setHostelType] = useState('hostel')
-  const [numberOfRooms, setNumberOfRooms] = useState('')
-  const [numberOfFloors, setNumberOfFloors] = useState('')
+  const [totalRooms, setTotalRooms] = useState('')
+  const [floors, setFloors] = useState('')
   const [businessHours, setBusinessHours] = useState('')
 
   // validation state for hostel registration
@@ -139,20 +151,20 @@ const AdminRegister = () => {
         id,
         name: hostelName,
         address: hostelAddress,
-        phone: hostelPhone,
+        contactPhone: contactPhone,
         type: hostelType,
-        rooms: numberOfRooms,
-        floors: numberOfFloors,
+        totalRooms: totalRooms,
+        floors: floors,
         businessHours,
         status: 'pending',
       },
     ])
     setHostelName('')
     setHostelAddress('')
-    setHostelPhone('')
+    setContactPhone('')
     setHostelType('hostel')
-    setNumberOfRooms('')
-    setNumberOfFloors('')
+    setTotalRooms('')
+    setFloors('')
     setBusinessHours('')
   }
 
@@ -193,28 +205,6 @@ const AdminRegister = () => {
             <p className="text-sm text-gray-600 mb-6">
               Minimal first-step registration. We will request hostel documents later if you register a hostel.
             </p>
-
-            {/* Role selector */}
-            <div className="mb-6 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setRole('owner')}
-                className={`px-4 py-2 rounded-md text-sm font-medium ${
-                  role === 'owner' ? 'text-white bg-blue-600 shadow' : 'text-gray-700 bg-gray-100'
-                }`}
-              >
-                Owner
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('manager')}
-                className={`px-4 py-2 rounded-md text-sm font-medium ${
-                  role === 'manager' ? 'text-white bg-amber-600 shadow' : 'text-gray-700 bg-gray-100'
-                }`}
-              >
-                Manager
-              </button>
-            </div>
 
             {success && (
               <div className="mb-4 p-3 rounded-md bg-green-50 text-green-800 text-sm">
@@ -258,7 +248,7 @@ const AdminRegister = () => {
                   className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
                     errors.email ? 'border-red-400' : 'border-gray-200'
                   }`}
-                  placeholder={role === 'owner' ? 'owner@example.com' : 'you@example.com'}
+                  placeholder={'owner@example.com'}
                 />
                 {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
               </div>
@@ -276,6 +266,20 @@ const AdminRegister = () => {
                     placeholder="+91 98765 43210"
                   />
                   {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Country code *</label>
+                  <input
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    type="text"
+                    className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                      errors.countryCode ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    placeholder="+91"
+                  />
+                  {errors.countryCode && <p className="mt-1 text-xs text-red-600">{errors.countryCode}</p>}
                 </div>
 
                 <div>
@@ -309,6 +313,78 @@ const AdminRegister = () => {
                   className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200"
                   placeholder="A short line about yourself"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Address *</label>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                    errors.address ? 'border-red-400' : 'border-gray-200'
+                  }`}
+                  placeholder="123 Main Street"
+                />
+                {errors.address && <p className="mt-1 text-xs text-red-600">{errors.address}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Country *</label>
+                <input
+                  type="text"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                    errors.country ? 'border-red-400' : 'border-gray-200'
+                  }`}
+                  placeholder="United States"
+                />
+                {errors.country && <p className="mt-1 text-xs text-red-600">{errors.country}</p>}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">City *</label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                      errors.city ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    placeholder="New York"
+                  />
+                  {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">State *</label>
+                  <input
+                    type="text"
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                      errors.state ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    placeholder="NY"
+                  />
+                  {errors.state && <p className="mt-1 text-xs text-red-600">{errors.state}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Zip Code *</label>
+                  <input
+                    type="text"
+                    value={zipCode}
+                    onChange={(e) => setZipCode(e.target.value)}
+                    className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                      errors.zipCode ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    placeholder="10001"
+                  />
+                  {errors.zipCode && <p className="mt-1 text-xs text-red-600">{errors.zipCode}</p>}
+                </div>
               </div>
 
               {/* Profile picture upload */}
@@ -571,7 +647,7 @@ const AdminRegister = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-gray-700">Contact phone</label>
-                    <input value={hostelPhone} onChange={(e) => setHostelPhone(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
+                    <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
                   </div>
 
                   <div>
@@ -587,12 +663,12 @@ const AdminRegister = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm text-gray-700">Number of rooms</label>
-                    <input type="number" min="0" value={numberOfRooms} onChange={(e) => setNumberOfRooms(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
+                    <input type="number" min="0" value={totalRooms} onChange={(e) => setTotalRooms(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
                   </div>
 
                   <div>
                     <label className="block text-sm text-gray-700">Number of floors</label>
-                    <input type="number" min="0" value={numberOfFloors} onChange={(e) => setNumberOfFloors(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
+                    <input type="number" min="0" value={floors} onChange={(e) => setFloors(e.target.value)} className="w-full px-4 py-3 border rounded-lg" />
                   </div>
 
                   <div>
