@@ -27,6 +27,8 @@ const sampleHostels = [
     businessHours: '08:00 - 22:00',
     description: 'Cozy hostel with WiFi and meals included.',
     amenities: 'WiFi,Laundry,Meals,Parking',
+    gst: 'GST123456789ABCD',
+    fssai: 'FSSAI12345678',
     createdAt: new Date().toISOString(),
   },
   {
@@ -40,6 +42,8 @@ const sampleHostels = [
     businessHours: '09:00 - 21:00',
     description: 'Budget-friendly paying guest accommodations.',
     amenities: 'WiFi,Water Tank,Parking',
+    gst: '',
+    fssai: '',
     createdAt: new Date().toISOString(),
   },
 ]
@@ -54,6 +58,8 @@ const blankForm = {
   businessHours: '',
   description: '',
   amenities: '',
+  gst: '',
+  fssai: '',
 }
 
 const HostelDetails = () => {
@@ -87,6 +93,8 @@ const HostelDetails = () => {
       businessHours: h.businessHours || '',
       description: h.description || '',
       amenities: h.amenities || '',
+      gst: h.gst || '',
+      fssai: h.fssai || '',
     })
     setErrors({})
     setMessage('')
@@ -260,6 +268,18 @@ const HostelDetails = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700">Amenities (comma-separated)</label>
             <input value={form.amenities} onChange={(e) => setForm((f) => ({ ...f, amenities: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded border-gray-200" placeholder="e.g. WiFi,Laundry,Meals,Parking" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">GST number (optional)</label>
+              <input value={form.gst} onChange={(e) => setForm((f) => ({ ...f, gst: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded border-gray-200" placeholder="GSTXXXXXXXXXXXXXXXX" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">FSSAI number (optional)</label>
+              <input value={form.fssai} onChange={(e) => setForm((f) => ({ ...f, fssai: e.target.value }))} className="mt-1 w-full px-3 py-2 border rounded border-gray-200" placeholder="FSSAI License Number" />
+            </div>
           </div>
 
           <div className="flex items-center gap-3 justify-end">

@@ -44,6 +44,8 @@ const RegisterPage = () => {
     setErrors(e)
     if (Object.keys(e).length) return
 
+    
+
     setLoading(true)
     setSuccess(false)
     // replace with real registration API call

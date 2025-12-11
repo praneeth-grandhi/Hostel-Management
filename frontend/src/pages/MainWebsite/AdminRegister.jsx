@@ -550,6 +550,18 @@ const AdminRegister = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700">GST number (optional)</label>
+                  <input value={gst} onChange={(e) => setGst(e.target.value)} className="mt-1 block w-full px-4 py-2 border rounded-lg" placeholder="GSTXXXXXXXXXXXXXXXX" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">FSSAI number (optional)</label>
+                  <input value={FSSAI} onChange={(e) => setFSSAI(e.target.value)} className="mt-1 block w-full px-4 py-2 border rounded-lg" placeholder="FSSAI License Number" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700">Password *</label>
                   <input
                     value={password}
