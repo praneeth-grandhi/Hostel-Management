@@ -1,72 +1,53 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router'
+import { useForm } from 'react-hook-form'
+import { REGISTER_USER } from '../../Data/request'
 
 const RegisterPage = () => {
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [countryCode, setCountryCode] = useState('')
-  const [address, setAddress] = useState('')
-  const [country, setCountry] = useState('')
-  const [city, setCity] = useState('')
-  const [state, setState] = useState('')
-  const [zipCode, setZipCode] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [errors, setErrors] = useState({})
-  const [loading, setLoading] = useState(false)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+    watch,
+  } = useForm({
+    mode: 'onChange',
+    defaultValues: {
+      email: '',
+      first_name: '',
+      last_name: '',
+      phone_number: '',
+      address: '',
+      country_code: '',
+      country: '',
+      city: '',
+      state: '',
+      zip_code: '',
+      password: '',
+      confirm_password: '',
+      role: 'user',
+    },
+  })
+
   const [success, setSuccess] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const password = watch('password')
 
-  const validate = () => {
-    const e = {}
-    if (!firstName.trim()) e.firstName = 'First name is required'
-    if (!lastName.trim()) e.lastName = 'Last name is required'
-    if (!email.trim()) e.email = 'Email is required'
-    else if (!/^\S+@\S+\.\S+$/.test(email)) e.email = 'Enter a valid email'
-    if (!phone.trim()) e.phone = 'Phone number is required'
-    else if (!/^[0-9]{7,15}$/.test(phone.replace(/\D/g, ''))) e.phone = 'Enter a valid phone number'
-    if (!countryCode.trim()) e.countryCode = 'Country code is required'
-    if (!address.trim()) e.address = 'Address is required'
-    if (!country.trim()) e.country = 'Country is required'
-    if (!city.trim()) e.city = 'City is required'
-    if (!state.trim()) e.state = 'State is required'
-    if (!zipCode.trim()) e.zipCode = 'Zip code is required'
-    if (!password) e.password = 'Password is required'
-    else if (password.length < 8) e.password = 'Password must be at least 8 characters'
-    if (password !== confirmPassword) e.confirmPassword = 'Passwords do not match'
-    return e
-  }
-
-  const handleSubmit = async (ev) => {
-    ev.preventDefault()
-    const e = validate()
-    setErrors(e)
-    if (Object.keys(e).length) return
-
-    
-
-    setLoading(true)
+  const onSubmit = async (data) => {
     setSuccess(false)
-    // replace with real registration API call
-    setTimeout(() => {
-      setLoading(false)
+    setErrorMessage('')
+
+    try {
+      const result = await REGISTER_USER(data)
       setSuccess(true)
-      // reset form if desired:
-      setFirstName('')
-      setLastName('')
-      setEmail('')
-      setPhone('')
-      setCountryCode('')
-      setAddress('')
-      setCountry('')
-      setCity('')
-      setState('')
-      setZipCode('')
-      setPassword('')
-      setConfirmPassword('')
-      console.log('Registered:', { firstName, lastName, email, phone, countryCode, address, country, city, state, zipCode })
-    }, 900)
+      reset()
+      console.log('Registered successfully:', result)
+      // Hide success message after 3 seconds
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (error) {
+      setErrorMessage(error.response?.data?.detail || 'Registration failed. Please try again.')
+      console.error('Registration error:', error)
+    }
   }
 
   return (
@@ -101,40 +82,48 @@ const RegisterPage = () => {
 
           {success && (
             <div className="mb-4 p-3 text-sm text-green-800 bg-green-100 rounded">
-              Account created successfully (demo).
+              Account created successfully!
             </div>
           )}
 
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          {errorMessage && (
+            <div className="mb-4 p-3 text-sm text-red-800 bg-red-100 rounded">
+              {errorMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block">
                 <span className="text-sm font-medium text-gray-700">First Name</span>
                 <input
                   type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
-                    errors.firstName ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
-                  }`}
                   placeholder="Your first name"
-                  aria-invalid={errors.firstName ? 'true' : 'false'}
+                  {...register('first_name', {
+                    required: 'First name is required',
+                  })}
+                  className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
+                    errors.first_name ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
+                  }`}
+                  aria-invalid={errors.first_name ? 'true' : 'false'}
                 />
-                {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>}
+                {errors.first_name && <p className="mt-1 text-xs text-red-600">{errors.first_name.message}</p>}
               </label>
 
               <label className="block">
                 <span className="text-sm font-medium text-gray-700">Last Name</span>
                 <input
                   type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
-                    errors.lastName ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
-                  }`}
                   placeholder="Your last name"
-                  aria-invalid={errors.lastName ? 'true' : 'false'}
+                  {...register('last_name', {
+                    required: 'Last name is required',
+                  })}
+                  className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
+                    errors.last_name ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
+                  }`}
+                  aria-invalid={errors.last_name ? 'true' : 'false'}
                 />
-                {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>}
+                {errors.last_name && <p className="mt-1 text-xs text-red-600">{errors.last_name.message}</p>}
               </label>
             </div>
 
@@ -142,75 +131,92 @@ const RegisterPage = () => {
               <span className="text-sm font-medium text-gray-700">Email</span>
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                {...register('email', {
+                  required: 'Email is required',
+                  pattern: {
+                    value: /^\S+@\S+\.\S+$/,
+                    message: 'Enter a valid email',
+                  },
+                })}
                 className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
                   errors.email ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
                 }`}
-                placeholder="you@example.com"
                 aria-invalid={errors.email ? 'true' : 'false'}
               />
-              {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+              {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
             </label>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Country Code</span>
               <input
                 type="text"
-                value={countryCode}
-                onChange={(e) => setCountryCode(e.target.value)}
-                className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
-                  errors.countryCode ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
-                }`}
                 placeholder="+91"
-                aria-invalid={errors.countryCode ? 'true' : 'false'}
+                {...register('country_code', {
+                  required: 'Country code is required',
+                })}
+                className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
+                  errors.country_code ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
+                }`}
+                aria-invalid={errors.country_code ? 'true' : 'false'}
               />
-              {errors.countryCode && <p className="mt-1 text-xs text-red-600">{errors.countryCode}</p>}
+              {errors.country_code && <p className="mt-1 text-xs text-red-600">{errors.country_code.message}</p>}
             </label>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Phone Number</span>
               <input
                 type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
-                  errors.phone ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
-                }`}
                 placeholder="+91 1234567890"
-                aria-invalid={errors.phone ? 'true' : 'false'}
+                {...register('phone_number', {
+                  required: 'Phone number is required',
+                  pattern: {
+                    value: /^[0-9]{7,15}$/,
+                    message: 'Enter a valid phone number (7-15 digits)',
+                  },
+                  validate: (value) => {
+                    const digitsOnly = value.replace(/\D/g, '')
+                    return digitsOnly.length >= 7 || 'Phone must have at least 7 digits'
+                  },
+                })}
+                className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
+                  errors.phone_number ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
+                }`}
+                aria-invalid={errors.phone_number ? 'true' : 'false'}
               />
-              {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+              {errors.phone_number && <p className="mt-1 text-xs text-red-600">{errors.phone_number.message}</p>}
             </label>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Address</span>
               <input
                 type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                placeholder="123 Main Street"
+                {...register('address', {
+                  required: 'Address is required',
+                })}
                 className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
                   errors.address ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
                 }`}
-                placeholder="123 Main Street"
                 aria-invalid={errors.address ? 'true' : 'false'}
               />
-              {errors.address && <p className="mt-1 text-xs text-red-600">{errors.address}</p>}
+              {errors.address && <p className="mt-1 text-xs text-red-600">{errors.address.message}</p>}
             </label>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Country</span>
               <input
                 type="text"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
+                placeholder="United States"
+                {...register('country', {
+                  required: 'Country is required',
+                })}
                 className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
                   errors.country ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
                 }`}
-                placeholder="United States"
                 aria-invalid={errors.country ? 'true' : 'false'}
               />
-              {errors.country && <p className="mt-1 text-xs text-red-600">{errors.country}</p>}
+              {errors.country && <p className="mt-1 text-xs text-red-600">{errors.country.message}</p>}
             </label>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -218,45 +224,48 @@ const RegisterPage = () => {
                 <span className="text-sm font-medium text-gray-700">City</span>
                 <input
                   type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="New York"
+                  {...register('city', {
+                    required: 'City is required',
+                  })}
                   className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
                     errors.city ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
                   }`}
-                  placeholder="New York"
                   aria-invalid={errors.city ? 'true' : 'false'}
                 />
-                {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
+                {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city.message}</p>}
               </label>
 
               <label className="block">
                 <span className="text-sm font-medium text-gray-700">State</span>
                 <input
                   type="text"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
+                  placeholder="NY"
+                  {...register('state', {
+                    required: 'State is required',
+                  })}
                   className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
                     errors.state ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
                   }`}
-                  placeholder="NY"
                   aria-invalid={errors.state ? 'true' : 'false'}
                 />
-                {errors.state && <p className="mt-1 text-xs text-red-600">{errors.state}</p>}
+                {errors.state && <p className="mt-1 text-xs text-red-600">{errors.state.message}</p>}
               </label>
 
               <label className="block">
                 <span className="text-sm font-medium text-gray-700">Zip Code</span>
                 <input
                   type="text"
-                  value={zipCode}
-                  onChange={(e) => setZipCode(e.target.value)}
-                  className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
-                    errors.zipCode ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
-                  }`}
                   placeholder="10001"
-                  aria-invalid={errors.zipCode ? 'true' : 'false'}
+                  {...register('zip_code', {
+                    required: 'Zip code is required',
+                  })}
+                  className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
+                    errors.zip_code ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
+                  }`}
+                  aria-invalid={errors.zip_code ? 'true' : 'false'}
                 />
-                {errors.zipCode && <p className="mt-1 text-xs text-red-600">{errors.zipCode}</p>}
+                {errors.zip_code && <p className="mt-1 text-xs text-red-600">{errors.zip_code.message}</p>}
               </label>
             </div>
 
@@ -265,39 +274,46 @@ const RegisterPage = () => {
                 <span className="text-sm font-medium text-gray-700">Password</span>
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  {...register('password', {
+                    required: 'Password is required',
+                    minLength: {
+                      value: 8,
+                      message: 'Password must be at least 8 characters',
+                    },
+                  })}
                   className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
                     errors.password ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
                   }`}
-                  placeholder="••••••••"
                   aria-invalid={errors.password ? 'true' : 'false'}
                 />
-                {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+                {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
               </label>
 
               <label className="block">
                 <span className="text-sm font-medium text-gray-700">Confirm Password</span>
                 <input
                   type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
-                    errors.confirmPassword ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
-                  }`}
                   placeholder="Confirm password"
-                  aria-invalid={errors.confirmPassword ? 'true' : 'false'}
+                  {...register('confirm_password', {
+                    required: 'Please confirm your password',
+                    validate: (value) => value === password || 'Passwords do not match',
+                  })}
+                  className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
+                    errors.confirm_password ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
+                  }`}
+                  aria-invalid={errors.confirm_password ? 'true' : 'false'}
                 />
-                {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
+                {errors.confirm_password && <p className="mt-1 text-xs text-red-600">{errors.confirm_password.message}</p>}
               </label>
             </div>
 
             <button
               type="submit"
               className="w-full inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-lg font-medium disabled:opacity-60"
-              disabled={loading}
+              disabled={isSubmitting}
             >
-              {loading ? 'Creating account...' : 'Register'}
+              {isSubmitting ? 'Creating account...' : 'Register'}
             </button>
           </form>
 

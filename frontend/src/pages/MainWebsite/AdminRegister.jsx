@@ -1,22 +1,43 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router'
+import { useForm } from 'react-hook-form'
 
 const AdminRegister = () => {
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [countryCode, setCountryCode] = useState('')
-  const [secondaryPhone, setSecondaryPhone] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [bio, setBio] = useState('')
-  const [address, setAddress] = useState('')
-  const [country, setCountry] = useState('')
-  const [city, setCity] = useState('')
-  const [state, setState] = useState('')
-  const [zipCode, setZipCode] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+    watch,
+  } = useForm({
+    mode: 'onChange',
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone_number: '',
+      country_code: '',
+      address: '',
+      country: '',
+      city: '',
+      state: '',
+      zip_code: '',
+      password: '',
+      confirm_password: '',
+      role: 'admin',
+      hostel_name: '',
+      hostel_address: '',
+      hostel_city: '',
+      hostel_state: '',
+      hostel_country: '',
+      hostel_zip_code: '',
+      contact_phone: '',
+      total_rooms: '',
+      floors: '',
+      business_hours: '',
+      agree: false,
+    },
+  })
 
   // files / documents
   const [profilePicture, setProfilePicture] = useState(null) // File
@@ -29,26 +50,15 @@ const AdminRegister = () => {
   const [FSSAI, setFSSAI] = useState('')
   const [proofOfAddressDocument, setProofOfAddressDocument] = useState(null) // File
 
-  const [agree, setAgree] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState({})
   const [success, setSuccess] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
   // new states for OTP + post-registration branching
   const [step, setStep] = useState('form') // 'form' | 'otp' | 'post'
   const [otp, setOtp] = useState('')
 
-  // Hostel registration fields (now mandatory in Step 1)
-  const [hostelName, setHostelName] = useState('')
-  const [hostelAddress, setHostelAddress] = useState('')
-  const [hostelCity, setHostelCity] = useState('')
-  const [hostelState, setHostelState] = useState('')
-  const [hostelCountry, setHostelCountry] = useState('')
-  const [hostelZipCode, setHostelZipCode] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
-  const [totalRooms, setTotalRooms] = useState('')
-  const [floors, setFloors] = useState('')
-  const [businessHours, setBusinessHours] = useState('')
+  const password = watch('password')
+  const agreeTerms = watch('agree')
 
   const passwordStrength = (pwd) => {
     let score = 0

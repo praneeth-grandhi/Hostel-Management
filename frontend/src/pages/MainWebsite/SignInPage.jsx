@@ -1,94 +1,71 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { useForm } from 'react-hook-form'
 
 const SignInPage = () => {
   const [role, setRole] = useState('user') // 'user' or 'admin'
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [errors, setErrors] = useState({})
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [adminType, setAdminType] = useState(null) // 'superadmin' or 'coadmin' (determined after login)
   const navigate = useNavigate()
 
-  const validate = () => {
-    const e = {}
-    if (!email.trim()) e.email = role === 'admin' ? 'Admin email is required' : 'Email is required'
-    else if (role === 'user' && !/^\S+@\S+\.\S+$/.test(email)) e.email = 'Enter a valid email'
-    if (!password) e.password = 'Password is required'
-    else if (password.length < 6) e.password = 'Password must be at least 6 characters'
-    return e
-  }
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm({
+    mode: 'onChange',
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  })
 
-  // Demo function: Check if user is superadmin or coadmin (would come from backend)
   const checkAdminType = (email) => {
-    // In a real app, backend would return the role based on database lookup
-    // For demo, check if email exists in owners list (coadmin) or if it's a known super admin
     try {
       const ownersData = JSON.parse(localStorage.getItem('hostelManagement:owners') || '[]')
       const isCoAdmin = ownersData.some(owner => owner.email === email.toLowerCase())
       if (isCoAdmin) return 'coadmin'
-    } catch (err) { /* ignore */ }
-    
-    // If not found in co-admins, assume super admin
+    } catch (err) {}
     return 'superadmin'
   }
 
-  const handleSubmit = async (ev) => {
-    ev.preventDefault()
-    const e = validate()
-    setErrors(e)
-    if (Object.keys(e).length) return
-
-    setLoading(true)
-    setSuccess(false)
-
-    // Admin login
+  const onSubmit = async (data) => {
     if (role === 'admin') {
-      // Determine if super admin or co-admin
-      const detectedAdminType = checkAdminType(email)
-      setAdminType(detectedAdminType)
-      
-      setTimeout(() => {
-        setLoading(false)
-        setSuccess(true)
-        try {
-          localStorage.setItem(
-            'hostelManagement:auth',
-            JSON.stringify({ 
-              role: detectedAdminType, // 'superadmin' or 'coadmin'
-              authenticated: true, 
-              at: new Date().toISOString() 
-            })
-          )
-          // notify app about auth change so Navbar updates immediately
-          window.dispatchEvent(new Event('hostelAuthChange'))
-        } catch (e) { /* ignore storage errors */ }
-        navigate('/adminDashboard')
-      }, 400)
-      return
-    }
+      const detectedAdminType = checkAdminType(data.email)
 
-    // User role: demo flow - persist auth and navigate to public/home dashboard
-    setTimeout(() => {
-      setLoading(false)
-      setSuccess(true)
+      await new Promise((resolve) => setTimeout(resolve, 400))
+
       try {
         localStorage.setItem(
           'hostelManagement:auth',
-          JSON.stringify({ 
-            role: 'guest', 
-            authenticated: true, 
-            email: email || '', 
-            at: new Date().toISOString() 
+          JSON.stringify({
+            role: detectedAdminType,
+            authenticated: true,
+            at: new Date().toISOString(),
           })
         )
-        // notify app about auth change so Navbar updates immediately
         window.dispatchEvent(new Event('hostelAuthChange'))
-      } catch (err) { /* ignore storage errors */ }
-      // navigate to user area
-      navigate('/')
-    }, 400)
+      } catch (e) {}
+      navigate('/adminDashboard')
+      return
+    }
+
+    // User login
+    await new Promise((resolve) => setTimeout(resolve, 400))
+
+    try {
+      localStorage.setItem(
+        'hostelManagement:auth',
+        JSON.stringify({
+          role: 'guest',
+          authenticated: true,
+          email: data.email || '',
+          at: new Date().toISOString(),
+        })
+      )
+      window.dispatchEvent(new Event('hostelAuthChange'))
+    } catch (err) {}
+    reset()
+    navigate('/')
   }
 
   return (
@@ -193,37 +170,49 @@ const SignInPage = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <label className="block">
               <span className="text-sm font-medium text-gray-700">
                 {role === 'admin' ? 'Admin Email' : 'Email'}
               </span>
               <input
-                type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                placeholder={role === 'admin' ? 'admin@example.com' : 'you@example.com'}
+                {...register('email', {
+                  required: role === 'admin' ? 'Admin email is required' : 'Email is required',
+                  ...(role === 'user' && {
+                    pattern: {
+                      value: /^\S+@\S+\.\S+$/,
+                      message: 'Enter a valid email',
+                    },
+                  }),
+                })}
                 className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
                   errors.email ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
                 }`}
-                placeholder={role === 'owner' ? 'owner@example.com or +9198...' : 'you@example.com'}
                 aria-invalid={errors.email ? 'true' : 'false'}
               />
-              {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+              {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
             </label>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Password</span>
               <input
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                {...register('password', {
+                  required: 'Password is required',
+                  minLength: {
+                    value: 6,
+                    message: 'Password must be at least 6 characters',
+                  },
+                })}
                 className={`mt-2 block w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 ${
                   errors.password ? 'border-red-400 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-200'
                 }`}
-                placeholder="••••••••"
                 aria-invalid={errors.password ? 'true' : 'false'}
               />
-              {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+              {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
             </label>
 
             <div className="flex items-center justify-between text-sm">
@@ -240,9 +229,9 @@ const SignInPage = () => {
             <button
               type="submit"
               className="w-full inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-lg font-medium disabled:opacity-60"
-              disabled={loading}
+              disabled={isSubmitting}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {isSubmitting ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 

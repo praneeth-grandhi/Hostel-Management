@@ -5,30 +5,68 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
 
-# ✅ Registration Serializer
+# ✅ Registration Serializer - Accept all User model fields
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=6)
-
+    password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8, required=False)
+    
     class Meta:
         model = User
-        fields = ['id', 'username', 'password', 'role']
-
+        fields = [
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'phone_number',
+            'address',
+            'country_code',
+            'country',
+            'city',
+            'state',
+            'zip_code',
+            'password',
+            'confirm_password',
+            'role'
+        ]
+        read_only_fields = ['id']
+        extra_kwargs = {
+            'phone_number': {'required': False, 'allow_blank': True},
+            'address': {'required': False, 'allow_blank': True},
+            'country_code': {'required': False, 'allow_blank': True},
+            'country': {'required': False, 'allow_blank': True},
+            'city': {'required': False, 'allow_blank': True},
+            'state': {'required': False, 'allow_blank': True},
+            'zip_code': {'required': False, 'allow_blank': True},
+            'role': {'required': False, 'allow_blank': True},
+        }
+    
+    def validate(self, data):
+        confirm_password = data.get('confirm_password')
+        password = data.get('password')
+        if confirm_password and password != confirm_password:
+            raise serializers.ValidationError({'confirm_password': 'Passwords do not match'})
+        return data
+    
     def create(self, validated_data):
+        validated_data.pop('confirm_password', None)
+        username = validated_data.get('username', validated_data.get('email'))
+        validated_data['username'] = username
         password = validated_data.pop('password')
+        
+
+        
         user = User(**validated_data)
         user.set_password(password)
-        
         # Set role based on input
         if validated_data.get('role') == 'admin':
             user.role = 'admin'
         else:
             user.role = 'user'
-        
         user.save()
         return user
 
 
-# ✅ Custom JWT Token Serializer (YOU ASKED FOR THIS)
+# ✅ Custom JWT Token Serializer (SAME JWT LOGIC)
 class CustomUserTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     @classmethod
@@ -109,4 +147,4 @@ class CustomUserTokenObtainPairSerializer(TokenObtainPairSerializer):
 #         }
 
 #         return data
-    
+

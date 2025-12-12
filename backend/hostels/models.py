@@ -4,7 +4,7 @@ from accounts.models import User # type: ignore warning
 
 # Create your models here.
 class Hostel(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=50)
     address = models.TextField()
     rooms = models.IntegerField()
     floors = models.IntegerField()

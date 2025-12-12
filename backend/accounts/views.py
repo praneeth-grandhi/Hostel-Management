@@ -4,7 +4,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import UserRegistrationSerializer, CustomUserTokenObtainPairSerializer # CustomAdminTokenObtainPairSerializer
 
 User = get_user_model()
-Admin = get_user_model()
 
 
 # ✅ Register API
