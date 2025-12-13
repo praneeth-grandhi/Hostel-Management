@@ -22,3 +22,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+DATABASE_AND_FRONTEND_REPORT.md
+..IMPLEMENTATION_PLAN.md
