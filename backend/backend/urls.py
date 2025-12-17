@@ -16,6 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin # type: ignore warning
 from django.urls import path, include # type: ignore warning
+from django.conf import settings # type: ignore warning
+from django.conf.urls.static import static # type: ignore warning
 from rest_framework_simplejwt.views import ( # type: ignore warning
     TokenObtainPairView,
     TokenRefreshView,
@@ -28,3 +30,7 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

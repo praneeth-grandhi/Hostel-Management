@@ -1,5 +1,5 @@
-from django.contrib.auth.models import AbstractUser
-from django.db import models
+from django.contrib.auth.models import AbstractUser # type: ignore warning
+from django.db import models # type: ignore warning
 
 class User(AbstractUser):
     phone_number = models.CharField(max_length=15, blank=True)

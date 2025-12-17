@@ -2,6 +2,8 @@ from rest_framework import generics
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import UserRegistrationSerializer, CustomUserTokenObtainPairSerializer # CustomAdminTokenObtainPairSerializer
+from .serializers import AdminWithHostelSerializer
+from rest_framework.permissions import AllowAny
 
 User = get_user_model()
 
@@ -14,6 +16,14 @@ class RegisterUserView(generics.CreateAPIView):
 # ✅ Custom JWT Login API
 class CustomUserLoginView(TokenObtainPairView):
     serializer_class = CustomUserTokenObtainPairSerializer
+
+
+# Register Admin together with Hostel
+class RegisterAdminWithHostelView(generics.CreateAPIView):
+    queryset = None
+    serializer_class = AdminWithHostelSerializer
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
 # class RegisterAdminView(generics.CreateAPIView):
 #     queryset = Admin.objects.all()

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router'
 import { useForm } from 'react-hook-form'
 import HostelRegistrationForm from '../../components/HostelRegistrationForm'
+import HostelVerificationForm from '../../components/HostelVerificationForm'
+import { CREATE_ADMIN_WITH_HOSTEL } from '../../Data/request.js'
 
 const AdminRegister = () => {
   const {
@@ -37,9 +39,11 @@ const AdminRegister = () => {
   const [panFile, setPanFile] = useState(null)
 
   const [errorMessage, setErrorMessage] = useState('')
-  const [step, setStep] = useState('form') // 'form' | 'otp' | 'hostel' | 'post'
+  const [successMessage, setSuccessMessage] = useState('')
+  const [step, setStep] = useState('form') // 'form' | 'otp' | 'hostel' | 'verification' | 'post'
   const [otp, setOtp] = useState('')
   const [registrationData, setRegistrationData] = useState(null)
+  const [isVerifying, setIsVerifying] = useState(false)
 
   const password = watch('password')
   const agree = watch('agree')
@@ -94,20 +98,121 @@ const AdminRegister = () => {
     }
   }
 
-  const handleVerifyOtp = (ev) => {
+  const handleVerifyOtp = async (ev) => {
     ev.preventDefault()
-    // Move to hostel registration after OTP verification
-    setStep('hostel')
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      setOtp('')
+      setSuccessMessage('OTP verified! Proceeding to hostel registration...')
+      console.log('OTP verified successfully')
+
+      // Hide success message after 2 seconds and move to hostel step
+      setTimeout(() => {
+        setSuccessMessage('')
+        setStep('hostel')
+      }, 2000)
+    } catch (error) {
+      setErrorMessage('OTP verification failed. Please try again.')
+      console.error('OTP verification error:', error)
+    }
   }
 
   const handleHostelSubmit = (hostelData) => {
-    // Combine admin and hostel data
+    // Combine admin and hostel data, then move to verification
     const combinedData = {
       ...registrationData,
       hostel: hostelData,
     }
     setRegistrationData(combinedData)
-    setStep('post')
+    setStep('verification')
+  }
+
+  const handleVerificationSubmit = async (verificationData) => {
+    setErrorMessage('')
+    setSuccessMessage('')
+    setIsVerifying(true)
+
+    try {
+      // Combine all data: admin + hostel + verification
+      const combinedData = {
+        // Admin/User fields
+        first_name: registrationData.first_name,
+        last_name: registrationData.last_name,
+        email: registrationData.email,
+        phone_number: registrationData.phone_number,
+        country_code: registrationData.country_code,
+        address: registrationData.address,
+        country: registrationData.country,
+        city: registrationData.city,
+        state: registrationData.state,
+        zip_code: registrationData.zip_code,
+        password: registrationData.password,
+        confirm_password: registrationData.confirm_password,
+        
+        // Hostel fields
+        hostel_name: registrationData.hostel.name,
+        hostel_address: registrationData.hostel.address,
+        hostel_city: registrationData.hostel.city,
+        hostel_state: registrationData.hostel.state,
+        hostel_country: registrationData.hostel.country,
+        hostel_zip_code: registrationData.hostel.zip_code,
+        contact_phone: registrationData.hostel.contact_phone,
+        rooms: registrationData.hostel.rooms,
+        floors: registrationData.hostel.floors,
+        business_hours: registrationData.hostel.business_hours,
+        
+        // Verification fields
+        hostel_type: verificationData.hostel_type,
+        food_provided: verificationData.food_provided,
+        police_verification: verificationData.police_verification,
+        police_verification_reference: verificationData.police_verification_reference,
+        gst_number: verificationData.gst_number,
+        fssai_license: verificationData.fssai_license,
+        
+        // File uploads
+        owner_id_proof: verificationData.owner_id_proof,
+        property_proof: verificationData.property_proof,
+        trade_license: verificationData.trade_license,
+      }
+
+      console.log('Submitting combined admin + hostel registration:', combinedData)
+      
+      // Make single atomic API call
+      const result = await CREATE_ADMIN_WITH_HOSTEL(combinedData)
+      console.log('Admin and hostel created successfully:', result)
+
+      // Store final data and show success
+      const finalData = {
+        ...registrationData,
+        adminResult: result.user,
+        hostelResult: result.hostel,
+      }
+      setRegistrationData(finalData)
+      setSuccessMessage('✓ Account and hostel created successfully!')
+
+      setTimeout(() => {
+        setSuccessMessage('')
+        setStep('post')
+      }, 2000)
+    } catch (error) {
+      console.error('Registration error:', error)
+      console.error('Server response data:', error.response?.data)
+      const serverData = error.response?.data
+      // Try to present a useful message from common DRF validation shapes
+      const message = serverData?.detail ||
+        (typeof serverData === 'object' && Object.values(serverData).flat().join(' ')) ||
+        error.message ||
+        'Registration failed. Please try again.'
+      setErrorMessage(message)
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
+  const handleBackFromVerification = () => {
+    setStep('hostel')
   }
 
   const handleBackFromHostel = () => {
@@ -379,25 +484,46 @@ const AdminRegister = () => {
           <h2 className="text-xl font-semibold mb-3">Verify phone (OTP)</h2>
           <p className="text-sm text-gray-600 mb-4">Enter the OTP sent to your mobile. (demo accepts any value)</p>
 
+          {errorMessage && (
+            <div className="mb-4 p-3 rounded-md bg-red-50 text-red-800 text-sm">
+              {errorMessage}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="mb-4 p-3 rounded-md bg-green-50 text-green-800 text-sm">
+              {successMessage}
+            </div>
+          )}
+
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <input
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
-              className="w-full px-4 py-3 border rounded-lg"
+              disabled={isVerifying}
+              className="w-full px-4 py-3 border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
               placeholder="Enter OTP"
             />
             <div className="flex gap-3">
-              <button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-lg">
-                Verify
+              <button
+                type="submit"
+                disabled={isVerifying}
+                className={`flex-1 py-3 text-white rounded-lg font-medium ${
+                  isVerifying ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {isVerifying ? 'Verifying & Creating Account...' : 'Verify & Create Account'}
               </button>
               <button
                 type="button"
+                disabled={isVerifying}
                 onClick={() => {
                   setOtp('')
+                  setErrorMessage('')
                 }}
-                className="py-3 px-4 border rounded-lg"
+                className="py-3 px-4 border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
-                Resend
+                Clear
               </button>
             </div>
           </form>
@@ -410,6 +536,15 @@ const AdminRegister = () => {
           adminData={registrationData}
           onSubmitSuccess={handleHostelSubmit}
           onBack={handleBackFromHostel}
+        />
+      )}
+
+      {/* HOSTEL VERIFICATION STEP */}
+      {step === 'verification' && registrationData && (
+        <HostelVerificationForm
+          hostelData={registrationData.hostel}
+          onSubmitSuccess={handleVerificationSubmit}
+          onBack={handleBackFromVerification}
         />
       )}
 
@@ -449,29 +584,49 @@ const AdminRegister = () => {
                   <h3 className="font-semibold text-green-900 mb-3">Hostel Details</h3>
                   <div className="space-y-2 text-sm text-green-800">
                     <div>
-                      <span className="font-medium">Name:</span> {registrationData.hostel.hostel_name}
+                      <span className="font-medium">Name:</span> {registrationData.hostel.name}
                     </div>
                     <div>
-                      <span className="font-medium">Address:</span> {registrationData.hostel.hostel_address}
+                      <span className="font-medium">Type:</span> {registrationData.hostel.hostel_type || 'Not specified'}
                     </div>
                     <div>
-                      <span className="font-medium">Location:</span> {registrationData.hostel.hostel_city}, {registrationData.hostel.hostel_state},{registrationData.hostel.hostel_country}
+                      <span className="font-medium">Address:</span> {registrationData.hostel.address}
                     </div>
                     <div>
-                      <span className="font-medium">Rooms:</span> {registrationData.hostel.total_rooms}
+                      <span className="font-medium">Location:</span> {registrationData.hostel.city}, {registrationData.hostel.state},{registrationData.hostel.country}
                     </div>
+                    <div>
+                      <span className="font-medium">Rooms:</span> {registrationData.hostel.rooms}
+                    </div>
+                    {registrationData.hostel.food_provided && (
+                      <div>
+                        <span className="font-medium">Food:</span> Provided
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="mt-8 p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <h3 className="font-semibold text-purple-900 mb-2">Documents Submitted</h3>
+              <ul className="text-sm text-purple-800 space-y-1">
+                <li>• ✓ Owner Identity Proof</li>
+                <li>• ✓ Property Proof</li>
+                {registrationData.hostel?.trade_license && <li>• ✓ Trade License</li>}
+                {registrationData.hostel?.police_verification && <li>• ✓ Police Verification</li>}
+                {registrationData.hostel?.gst_number && <li>• ✓ GST Number</li>}
+                {registrationData.hostel?.fssai_license && <li>• ✓ FSSAI License</li>}
+              </ul>
             </div>
 
             <div className="mt-8 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
               <h3 className="font-semibold text-yellow-900 mb-2">Next Steps</h3>
               <ul className="text-sm text-yellow-800 space-y-1">
                 <li>• Check your email for account confirmation</li>
-                <li>• Your hostel will be verified by our team within 24-48 hours</li>
-                <li>• You will receive an email once your hostel is verified</li>
-                <li>• After verification, you can manage bookings and rooms in your dashboard</li>
+                <li>• Our team will verify your documents within 24-48 hours</li>
+                <li>• You will receive an email once verification is complete</li>
+                <li>• After approval, you can manage bookings and rooms in your dashboard</li>
               </ul>
             </div>
 

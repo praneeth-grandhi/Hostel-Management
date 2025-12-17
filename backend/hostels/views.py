@@ -1,5 +1,5 @@
 from django.shortcuts import render # type: ignore warning
-from rest_framework import generics, viewsets # type: ignore warning
+from rest_framework import viewsets # type: ignore warning
 from .models import Hostel
 from .serializers import HostelSerializer
 from accounts.permissions import IsAdminUser
@@ -18,3 +18,5 @@ class HostelViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Automatically set owner to the authenticated admin user
         serializer.save(owner=self.request.user)
+
+# (Combined admin+hostel registration moved to accounts app)

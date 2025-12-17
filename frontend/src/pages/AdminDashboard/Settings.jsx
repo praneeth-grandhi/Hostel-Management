@@ -4,8 +4,8 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 const BASE_PATH = '/adminDashboard/settings'
 
 const TABS = [
-  { id: 'hostelDetails', label: 'Hostel Profile', desc: 'Edit name, address and contact details', path: '/hostelDetails' },
-  { id: 'owners', label: 'Users & Roles', desc: 'Manage co-admins, roles and permissions', path: '/owners' },
+  { id: 'hostelDetails', label: 'Your Hostels', desc: 'Edit name, address and contact details of your hostel', path: '/hostelDetails' },
+  { id: 'owners', label: 'Users & Roles', desc: 'Manage co-admins', path: '/owners' },
   { id: 'notificationAndCommunication', label: 'Notification & Communication', desc: 'Email/SMS templates & channels', path: '/notificationAndCommunication' },
   { id: 'securityAndAccess', label: 'Security & Access', desc: '2FA, password policy and session timeout', path: '/securityAndAccess' },
 ]

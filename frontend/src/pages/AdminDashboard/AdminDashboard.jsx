@@ -2,6 +2,7 @@ import Sidebar from '../../components/Sidebar.jsx'
 import { Outlet } from 'react-router'
 
 const AdminDashboard = () => {
+
   return (
     // make parent full viewport height so children can use min-h-0 correctly
     <div className='flex h-screen'>
