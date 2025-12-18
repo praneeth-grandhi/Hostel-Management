@@ -2,6 +2,19 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api/';
 
+
+// Get user permissions from backend (single source of truth)
+export const FETCH_USER_PERMISSIONS = async () => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.get(`${API_BASE_URL}me/permissions/`, {
+        headers: {
+            Authorization: `Bearer ${auth?.access}`
+        }
+    });
+    return response.data;
+}
+
+// Manage users
 export const REGISTER_USER = async (userData) => {
     const response = await axios.post(`${API_BASE_URL}register/`, userData);
     return response.data;
@@ -13,14 +26,79 @@ export const LOGIN_USER = async (userData) => {
     return response.data;
 }
 
+export const FETCH_USER_PROFILE = async () => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.get(`${API_BASE_URL}me/profile/`, {
+        headers: {
+            Authorization: `Bearer ${auth?.access}`
+        }
+    });
+    return response.data;
+}
+
+export const UPDATE_USER_PROFILE = async (profileData) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    
+    // Check if it's FormData (for file uploads) or regular object
+    const isFormData = profileData instanceof FormData
+    
+    const response = await axios.put(`${API_BASE_URL}me/profile/`, profileData, {
+        headers: {
+            Authorization: `Bearer ${auth?.access}`,
+            // Don't set Content-Type for FormData - axios will set it with boundary
+            ...(isFormData ? {} : { 'Content-Type': 'application/json' })
+        }
+    });
+    return response.data;
+}
+
+export const CHANGE_PASSWORD = async (currentPassword, newPassword) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.put(`${API_BASE_URL}me/change-password/`, {
+        current_password: currentPassword,
+        new_password: newPassword
+    }, {
+        headers: {
+            Authorization: `Bearer ${auth?.access}`
+        }
+    });
+    return response.data;
+}
+
+// Manage hostels
 export const CREATE_HOSTEL = async (hostelData) => {
-    const response = await axios.post(`${API_BASE_URL}hostels/`, hostelData);
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.post(`${API_BASE_URL}hostels/`, hostelData, {
+        headers: {
+            Authorization: `Bearer ${auth?.access}`
+        }
+    });
     return response.data;
 }
 
 export const FETCH_HOSTELS = async () => {
     const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
     const response = await axios.get(`${API_BASE_URL}hostels/`, {
+        headers: {
+            Authorization: `Bearer ${auth?.access}`
+        }
+    });
+    return response.data;
+}
+
+export const EDIT_HOSTEL = async (hostelId, hostelData) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.put(`${API_BASE_URL}hostels/${hostelId}/`, hostelData, {
+        headers: {
+            Authorization: `Bearer ${auth?.access}`
+        }
+    });
+    return response.data;
+}
+
+export const DELETE_HOSTEL = async (hostelId) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.delete(`${API_BASE_URL}hostels/${hostelId}/`, {
         headers: {
             Authorization: `Bearer ${auth?.access}`
         }
@@ -81,6 +159,39 @@ export const CREATE_ADMIN_WITH_HOSTEL = async (adminHostelData) => {
         headers: {
             'Content-Type': 'multipart/form-data',
         },
+    });
+    return response.data;
+}
+
+// Manage co-admin
+export const FETCH_CO_ADMINS = async () => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.get(`${API_BASE_URL}co-admins/`, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+export const CREATE_CO_ADMIN = async (data) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.post(`${API_BASE_URL}co-admins/`, data, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+export const DELETE_CO_ADMIN = async (id) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.delete(`${API_BASE_URL}co-admins/${id}/`, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+export const UPDATE_CO_ADMIN = async (id, data) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.put(`${API_BASE_URL}co-admins/${id}/update/`, data, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
     });
     return response.data;
 }

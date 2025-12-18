@@ -20,12 +20,19 @@ const ProtectedRoute = ({ requiredRole }) => {
     }
     
     // If a specific role is required, check it
-    if (requiredRole && auth.role !== requiredRole) {
-      // Wrong role - redirect to appropriate page
-      if (auth.role === 'admin') {
-        return <Navigate to="/adminDashboard" replace />
-      } else {
-        return <Navigate to="/" replace />
+    if (requiredRole) {
+      // Allow both 'admin' and 'coadmin' to access admin dashboard
+      if (requiredRole === 'admin' && (auth.role === 'admin' || auth.role === 'coadmin')) {
+        return <Outlet />
+      }
+      
+      if (auth.role !== requiredRole) {
+        // Wrong role - redirect to appropriate page
+        if (auth.role === 'admin' || auth.role === 'coadmin') {
+          return <Navigate to="/adminDashboard" replace />
+        } else {
+          return <Navigate to="/" replace />
+        }
       }
     }
     

@@ -134,6 +134,20 @@ REST_FRAMEWORK = {
     )
 }
 
+# JWT Token Settings
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),      # Access token valid for 1 day (default: 5 minutes)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Refresh token valid for 7 days (default: 1 day)
+    'ROTATE_REFRESH_TOKENS': True,                   # Get new refresh token when refreshing
+    'BLACKLIST_AFTER_ROTATION': True,                # Blacklist old refresh tokens
+    'UPDATE_LAST_LOGIN': True,                       # Update user's last_login on token obtain
+    
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+}
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 

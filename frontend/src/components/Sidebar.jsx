@@ -1,58 +1,52 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router'
 import logo from '../assets/dp.png'
+import { usePermissions } from '../context/PermissionsContext'
 
 //icons
 import { Menu } from 'lucide-react'
 import { IoBedOutline } from 'react-icons/io5'
-import { BsBuilding } from 'react-icons/bs'
 import { SlLogout } from 'react-icons/sl'
 import { MdOutlineDashboard } from 'react-icons/md'
 import { MdOutlineCalendarMonth } from 'react-icons/md'
-import { MdOutlinePeopleAlt } from 'react-icons/md'
 import { MdOutlineFeedback } from 'react-icons/md'
-import { MdOutlinePayment } from 'react-icons/md'
 import { FaUserCircle } from 'react-icons/fa'
-import { MdOutlineAnalytics } from 'react-icons/md'
 import { MdOutlineSettings } from 'react-icons/md'
 
 const BASE = '/adminDashboard'
 
-const menuItems = [
-  {
-    icons: <MdOutlineDashboard size={20} />,
-    label: 'Dashboard',
-    path: '/mainDashboard',
-  },
-  {
-    icons: <IoBedOutline size={20} />,
-    label: 'Rooms',
-    path: '/rooms',
-  },
-  {
-    icons: <MdOutlineCalendarMonth size={20} />,
-    label: 'Bookings',
-    path: '/bookings',
-  },
-  {
-    icons: <MdOutlineFeedback size={20} />,
-    label: 'Complaints & Feedback',
-    path: '/complaints',
-  },
-  {
-    icons: <MdOutlineSettings size={20} />,
-    label: 'Settings',
-    path: '/settings',
-  },
-  {
-    icons: <SlLogout size={20} />,
-    label: 'Logout',
-  },
+// Admin sees all, Co-admin sees limited
+const ADMIN_MENU = [
+  { icons: <MdOutlineDashboard size={20} />, label: 'Dashboard', path: '/mainDashboard' },
+  { icons: <IoBedOutline size={20} />, label: 'Rooms', path: '/rooms' },
+  { icons: <MdOutlineCalendarMonth size={20} />, label: 'Bookings', path: '/bookings' },
+  { icons: <MdOutlineFeedback size={20} />, label: 'Complaints & Feedback', path: '/complaints' },
+  { icons: <MdOutlineSettings size={20} />, label: 'Settings', path: '/settings' },
+  { icons: <SlLogout size={20} />, label: 'Logout' },
+]
+
+const COADMIN_MENU = [
+  { icons: <MdOutlineCalendarMonth size={20} />, label: 'Bookings', path: '/bookings' },
+  { icons: <MdOutlineFeedback size={20} />, label: 'Complaints & Feedback', path: '/complaints' },
+  { icons: <MdOutlineSettings size={20} />, label: 'Settings', path: '/settings' },
+  { icons: <SlLogout size={20} />, label: 'Logout' },
 ]
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false)
   const navigate = useNavigate()
+  
+  // Get role from backend
+  const { isAdmin, user } = usePermissions()
+
+  // User info
+  const userName = user?.first_name && user?.last_name 
+    ? `${user.first_name} ${user.last_name}` 
+    : user?.first_name || user?.email?.split('@')[0] || 'User'
+  const userEmail = user?.email || ''
+
+  // Menu based on role
+  const menuItems = isAdmin ? ADMIN_MENU : COADMIN_MENU
 
   const handleLogout = () => {
     try {
@@ -115,14 +109,14 @@ const Sidebar = () => {
           )
         })}
       </ul>
-      {/* Footer */}
-      <div className="flex items-center gap-2 px-3 py-2">
-        <div>
+      {/* Footer - User Info */}
+      <div className="flex items-center gap-2 px-3 py-2 border-t border-blue-800">
+        <div className="shrink-0">
           <FaUserCircle size={30}></FaUserCircle>
         </div>
         <div className={`leading-5 ${!isOpen && 'w-0 translate-x-24 '} duration-300 overflow-hidden`}>
-          <p>Praneeth</p>
-          <span>praneeth.gsk@gmail.com</span>
+          <p className="font-medium truncate">{userName}</p>
+          <span className="text-xs text-blue-200 truncate block">{userEmail}</span>
         </div>
       </div>
     </nav>

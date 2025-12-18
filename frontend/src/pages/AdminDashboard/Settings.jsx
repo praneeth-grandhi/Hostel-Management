@@ -1,18 +1,28 @@
-import React from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
+import { usePermissions } from '../../context/PermissionsContext'
 
 const BASE_PATH = '/adminDashboard/settings'
 
-const TABS = [
+// Admin sees all tabs, Co-admin sees limited
+const ADMIN_TABS = [
   { id: 'hostelDetails', label: 'Your Hostels', desc: 'Edit name, address and contact details of your hostel', path: '/hostelDetails' },
   { id: 'owners', label: 'Users & Roles', desc: 'Manage co-admins', path: '/owners' },
   { id: 'notificationAndCommunication', label: 'Notification & Communication', desc: 'Email/SMS templates & channels', path: '/notificationAndCommunication' },
   { id: 'securityAndAccess', label: 'Security & Access', desc: '2FA, password policy and session timeout', path: '/securityAndAccess' },
 ]
 
+const COADMIN_TABS = [
+  { id: 'hostelDetails', label: 'Switch Hostel', desc: 'View and switch between hostels', path: '/hostelDetails' },
+  { id: 'notificationAndCommunication', label: 'Notification & Communication', desc: 'Email/SMS templates & channels', path: '/notificationAndCommunication' },
+]
+
 const Settings = () => {
   const location = useLocation()
   const navigate = useNavigate()
+  
+  // Get role from backend
+  const { isAdmin } = usePermissions()
+  const TABS = isAdmin ? ADMIN_TABS : COADMIN_TABS
 
   const isBase = location.pathname === BASE_PATH || location.pathname === `${BASE_PATH}/`
 

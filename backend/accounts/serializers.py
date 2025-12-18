@@ -1,7 +1,7 @@
 from rest_framework import serializers # type: ignore warning
 from django.contrib.auth import get_user_model # type: ignore warning
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer # type: ignore warning
-
+from .models import CoAdminProfile
 
 User = get_user_model()
 
@@ -247,69 +247,78 @@ class CustomUserTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
 
-        # ✅ Custom data in login response
+        # ✅ Custom data in login response - include user details for frontend
         data['user'] = {
+            'id': self.user.id,
+            'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
             'role': self.user.role,
+            'phone_number': getattr(self.user, 'phone_number', ''),
         }
 
         return data
 
+class CoAdminProfileSerializer(serializers.Serializer):
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, min_length=6, required=True)
+    confirm_password = serializers.CharField(write_only=True, min_length=6, required=True)
+    
+    def validate(self, data):
+        password = data.get('password')
+        confirm_password = data.pop('confirm_password', None)
+        if password != confirm_password:
+            raise serializers.ValidationError({'confirm_password': 'Passwords do not match'})
+        
+        email = data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({'email': 'Email already registered'})
+        
+        return data
+    
+    def create(self, validated_data):
 
-# class AdminRegistrationSerializer(serializers.ModelSerializer):
-#     password = serializers.CharField(write_only=True, min_length=6)
-#     phone_number = serializers.CharField(required=False, allow_blank=True)
-#     address = serializers.CharField(required=False, allow_blank=True)
-#     role = serializers.CharField(required=False, allow_blank=True)
+        
+        super_admin = self.context['request'].user
 
-#     class Meta:
-#         model = User
-#         fields = ['id', 'username', 'password', 'phone_number', 'address', 'role']
+        # Use transaction to ensure both User and CoAdminProfile are created together
+        with transaction.atomic():
+            # Create user - set fields after creation to ensure they're saved
+            user = User(
+                username=validated_data['email'],
+                email=validated_data['email'],
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name'],
+                role='coadmin'
+            )
+            user.set_password(validated_data['password'])
+            user.save()
 
-#     def create(self, validated_data):
-#         password = validated_data.pop('password')
-#         phone_number = validated_data.pop('phone_number', '')
-#         address = validated_data.pop('address', '')
-#         role = validated_data.pop('role', '')
+            CoAdminProfile.objects.create(user=user, super_admin=super_admin)
 
-#         user = User.objects.create_user(
-#             username=validated_data['username'],
-#             password=password,
-#         )
+        return user
 
-#         admin = Admin.objects.create(
-#             user=user,
-#             phone_number=phone_number,
-#             address=address,
-#             role=role or 'super-admin',
-#         )
 
-#         admin.save()
-#         # admin = Admin(**validated_data)
-#         # admin.set_password(password)
-#         # admin.role = 'admin'
-#         # admin.save()
-#         return admin
+# Update user profile serializer
 
-# ✅ Custom JWT Token Serializer for Admin
-# class CustomAdminTokenObtainPairSerializer(TokenObtainPairSerializer):
-
-#     @classmethod
-#     def get_token(cls, admin):
-#         token = super().get_token(admin)
-
-#         # ✅ Custom claims inside JWT
-#         token['username'] = admin.username
-#         token['role'] = admin.role
-
-#         return token
-
-#     def validate(self, attrs):
-#         data = super().validate(attrs)
-
-#         # ✅ Custom data in login response
-#         data['admin'] = {
-#             'role': self.admin.role,
-#         }
-
-#         return data
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            'first_name',
+            'last_name',
+            'email',
+            'phone_number',
+            'address',
+            'country_code',
+            'country',
+            'city',
+            'state',
+            'zip_code',
+            'profile_picture',
+        ]
+        read_only_fields = ['id', 'email'] 
+    
 

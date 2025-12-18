@@ -1,42 +1,214 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import Modal from '../../components/Modal.jsx'
+import UserCard from '../../components/UserCard.jsx'
+import { FETCH_CO_ADMINS, CREATE_CO_ADMIN, DELETE_CO_ADMIN, UPDATE_CO_ADMIN } from '../../Data/request.js'
 
-const STORAGE_KEY = 'hostelManagement:owners'
-
-function loadOwners() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-  } catch {
-    return []
-  }
+const blankForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
 }
-function saveOwners(list) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
-  } catch {}
+
+// Owner Form Component
+const OwnerForm = ({ form, setForm, errors, onSubmit, onCancel, isEditing = false, isLoading = false }) => {
+  return (
+    <form onSubmit={onSubmit} className="p-6 space-y-5">
+      {/* Personal Info */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+          <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs">1</span>
+          Personal Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-8">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              First Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              value={form.firstName}
+              onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.firstName ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
+              placeholder="First name"
+            />
+            {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Last Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              value={form.lastName}
+              onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.lastName ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
+              placeholder="Last name"
+            />
+            {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Account Info */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+          <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs">2</span>
+          Account Details
+        </h3>
+        <div className="space-y-4 pl-8">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email Address <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.email ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
+              placeholder="email@example.com"
+            />
+            {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password {!isEditing && <span className="text-red-500">*</span>}
+                {isEditing && <span className="text-gray-400 text-xs ml-1">(leave blank to keep current)</span>}
+              </label>
+              <input
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.password ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                }`}
+                placeholder={isEditing ? 'Enter new password' : '••••••••'}
+              />
+              {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password {!isEditing && <span className="text-red-500">*</span>}
+              </label>
+              <input
+                type="password"
+                value={form.confirmPassword}
+                onChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+                className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.confirmPassword ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                }`}
+                placeholder={isEditing ? 'Confirm new password' : '••••••••'}
+              />
+              {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-3 pt-4 border-t mt-6">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isLoading}
+          className="px-5 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+        >
+          {isLoading ? (
+            <>
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {isEditing ? 'Saving...' : 'Creating...'}
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              {isEditing ? 'Save Changes' : 'Create Owner'}
+            </>
+          )}
+        </button>
+      </div>
+    </form>
+  )
 }
 
 const Owners = () => {
   const [owners, setOwners] = useState([])
-  const [showForm, setShowForm] = useState(false)
-
-  // combined form object
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    isSuper: false,
-  })
-
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingOwner, setEditingOwner] = useState(null)
+  const [form, setForm] = useState(blankForm)
   const [errors, setErrors] = useState({})
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [message, setMessage] = useState({ text: '', type: '' })
+  const [isLoading, setIsLoading] = useState(false)
+  const [isFetching, setIsFetching] = useState(true)
 
+  // Load co-admins from API
   useEffect(() => {
-    const existing = loadOwners()
-    setOwners(Array.isArray(existing) ? existing : [])
+    const fetchOwners = async () => {
+      try {
+        setIsFetching(true)
+        const data = await FETCH_CO_ADMINS()
+        // Map backend field names to frontend field names
+        const mapped = data.map(o => ({
+          id: o.id,
+          firstName: o.first_name,
+          lastName: o.last_name,
+          email: o.email,
+          createdAt: o.created_at,
+        }))
+        setOwners(mapped)
+      } catch (err) {
+        console.error('Failed to fetch co-admins:', err)
+        showMessage('Failed to load co-admins', 'error')
+      } finally {
+        setIsFetching(false)
+      }
+    }
+    fetchOwners()
   }, [])
+
+  const handleAddNew = () => {
+    setForm(blankForm)
+    setEditingOwner(null)
+    setErrors({})
+    setIsModalOpen(true)
+  }
+
+  const handleEdit = (owner) => {
+    setForm({
+      firstName: owner.firstName || '',
+      lastName: owner.lastName || '',
+      email: owner.email || '',
+      password: '',
+      confirmPassword: '',
+    })
+    setEditingOwner(owner)
+    setErrors({})
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setEditingOwner(null)
+    setErrors({})
+  }
 
   const validate = () => {
     const e = {}
@@ -44,208 +216,210 @@ const Owners = () => {
     if (!form.lastName.trim()) e.lastName = 'Last name is required'
     if (!form.email.trim()) e.email = 'Email is required'
     else if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = 'Enter a valid email'
-    if (!form.password) e.password = 'Password is required'
-    else if (form.password.length < 6) e.password = 'Password must be at least 6 characters'
-    if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match'
+    
+    if (!editingOwner) {
+      // Password required for new owners
+      if (!form.password) e.password = 'Password is required'
+      else if (form.password.length < 6) e.password = 'Password must be at least 6 characters'
+      if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match'
+    } else {
+      // Password optional for editing, but validate if provided
+      if (form.password) {
+        if (form.password.length < 6) e.password = 'Password must be at least 6 characters'
+        if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match'
+      }
+    }
     return e
   }
 
-  const handleSubmit = (ev) => {
+  const handleSave = async (ev) => {
     ev.preventDefault()
     const e = validate()
     setErrors(e)
     if (Object.keys(e).length) return
 
-    setLoading(true)
-    setSuccess(false)
+    setIsLoading(true)
 
-    setTimeout(() => {
-      const all = loadOwners()
-      const exists = all.find((a) => a.email.toLowerCase() === form.email.toLowerCase())
-      if (exists) {
-        setErrors({ email: 'An owner with this email already exists' })
-        setLoading(false)
-        return
+    try {
+      if (editingOwner) {
+        // Update existing co-admin
+        const updateData = {
+          first_name: form.firstName.trim(),
+          last_name: form.lastName.trim(),
+          email: form.email.trim().toLowerCase(),
+        }
+        // Only include password if provided
+        if (form.password) {
+          updateData.password = form.password
+        }
+        
+        const updated = await UPDATE_CO_ADMIN(editingOwner.id, updateData)
+        
+        setOwners(prev => prev.map(o => 
+          o.id === editingOwner.id 
+            ? {
+                id: updated.id,
+                firstName: updated.first_name,
+                lastName: updated.last_name,
+                email: updated.email,
+                createdAt: updated.created_at,
+              }
+            : o
+        ))
+        showMessage('Co-admin updated successfully!', 'success')
+      } else {
+        // Create new co-admin
+        const createData = {
+          first_name: form.firstName.trim(),
+          last_name: form.lastName.trim(),
+          email: form.email.trim().toLowerCase(),
+          password: form.password,
+          confirm_password: form.confirmPassword,
+        }
+        
+        const created = await CREATE_CO_ADMIN(createData)
+        
+        // Refresh the list to get accurate data
+        const data = await FETCH_CO_ADMINS()
+        const mapped = data.map(o => ({
+          id: o.id,
+          firstName: o.first_name,
+          lastName: o.last_name,
+          email: o.email,
+          createdAt: o.created_at,
+        }))
+        setOwners(mapped)
+        showMessage('Co-admin created successfully!', 'success')
       }
-
-      const id = `owner_${Date.now().toString(36)}`
-      const record = {
-        id,
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        email: form.email.trim().toLowerCase(),
-        password: btoa(form.password), // demo only — do not store plaintext in production
-        role: form.isSuper ? 'superowner' : 'owner',
-        createdAt: new Date().toISOString(),
-      }
-      all.unshift(record)
-      saveOwners(all)
-      setOwners(all)
-
-      setLoading(false)
-      setSuccess(true)
-      setForm({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '', isSuper: false })
-      setErrors({})
-      setShowForm(false)
-    }, 600)
+      handleCloseModal()
+    } catch (err) {
+      console.error('Failed to save co-admin:', err)
+      const errorMsg = err.response?.data?.email?.[0] || 
+                       err.response?.data?.error || 
+                       err.response?.data?.detail ||
+                       'Failed to save co-admin. Please try again.'
+      setErrors({ email: errorMsg })
+      showMessage(errorMsg, 'error')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleDelete = (id) => {
-    if (!confirm('Remove this owner?')) return
-    const updated = owners.filter((a) => a.id !== id)
-    saveOwners(updated)
-    setOwners(updated)
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to remove this co-admin?')) return
+    
+    try {
+      await DELETE_CO_ADMIN(id)
+      setOwners(prev => prev.filter(o => o.id !== id))
+      showMessage('Co-admin removed.', 'info')
+    } catch (err) {
+      console.error('Failed to delete co-admin:', err)
+      showMessage('Failed to remove co-admin', 'error')
+    }
   }
 
-  const initials = (firstName, lastName) =>
-    `${(firstName || '').charAt(0)}${(lastName || '').charAt(0)}`.toUpperCase()
+  const showMessage = (text, type) => {
+    setMessage({ text, type })
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  if (isFetching) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center gap-3 text-gray-500">
+          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Loading co-admins...
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-150 p-6 bg-gray-50">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <header className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Owners</h1>
-            <p className="text-sm text-gray-500">People who can manage this hostel (co-owners / co-admins).</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowForm((s) => !s)}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded"
-            >
-              {showForm ? 'Close Form' : 'Create New Owner'}
-            </button>
-          </div>
-        </header>
-
-        <section className="bg-white border rounded-lg p-4">
-          <div className="flex items-center gap-3 overflow-x-auto">
-            {owners.length === 0 ? (
-              <div className="text-sm text-gray-500">No owners yet.</div>
-            ) : (
-              owners.map((a) => (
-                <div key={a.id} className="flex items-center gap-3 bg-gray-50 border rounded p-3 min-w-[220px]">
-                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-medium">
-                    {initials(a.firstName, a.lastName)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 truncate">{a.firstName} {a.lastName}</div>
-                    <div className="text-xs text-gray-500">{a.email}</div>
-                    <div className="text-xs mt-1">
-                      <span className={`px-2 py-1 rounded text-xs ${a.role === 'superowner' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {a.role}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <button onClick={() => handleDelete(a.id)} className="px-2 py-1 border rounded text-sm text-red-600">
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {showForm && (
-          <div className="bg-white border rounded-lg p-6 shadow-sm">
-            <h2 className="text-lg font-medium text-gray-800 mb-2">Create Owner Account</h2>
-            <p className="text-sm text-gray-500 mb-4">Create another owner user. Fields match the public register form (name, email, password).</p>
-
-            {success && <div className="mb-4 p-3 text-sm text-green-800 bg-green-100 rounded">Owner account created.</div>}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-sm text-gray-600">First Name</span>
-                  <input
-                    name="firstName"
-                    value={form.firstName}
-                    onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                    className={`mt-1 w-full px-3 py-2 border rounded ${errors.firstName ? 'border-red-400' : 'border-gray-200'}`}
-                  />
-                  {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>}
-                </label>
-
-                <label className="block">
-                  <span className="text-sm text-gray-600">Last Name</span>
-                  <input
-                    name="lastName"
-                    value={form.lastName}
-                    onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                    className={`mt-1 w-full px-3 py-2 border rounded ${errors.lastName ? 'border-red-400' : 'border-gray-200'}`}
-                  />
-                  {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>}
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="text-sm text-gray-600">Email</span>
-                <input
-                  name="email"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                  className={`mt-1 w-full px-3 py-2 border rounded ${errors.email ? 'border-red-400' : 'border-gray-200'}`}
-                />
-                {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
-              </label>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-sm text-gray-600">Password</span>
-                  <input
-                    name="password"
-                    value={form.password}
-                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                    type="password"
-                    className={`mt-1 w-full px-3 py-2 border rounded ${errors.password ? 'border-red-400' : 'border-gray-200'}`}
-                  />
-                  {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
-                </label>
-
-                <label className="block">
-                  <span className="text-sm text-gray-600">Confirm Password</span>
-                  <input
-                    name="confirmPassword"
-                    value={form.confirmPassword}
-                    onChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
-                    type="password"
-                    className={`mt-1 w-full px-3 py-2 border rounded ${errors.confirmPassword ? 'border-red-400' : 'border-gray-200'}`}
-                  />
-                  {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
-                </label>
-              </div>
-
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.isSuper}
-                  onChange={(e) => setForm((f) => ({ ...f, isSuper: e.target.checked }))}
-                />
-                <span className="text-sm text-gray-600">Give super-owner privileges</span>
-              </label>
-
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForm({ name: '', email: '', password: '', confirmPassword: '', isSuper: false })
-                    setErrors({})
-                  }}
-                  className="px-3 py-2 border rounded"
-                >
-                  Reset
-                </button>
-                <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded">
-                  {loading ? 'Creating...' : 'Create Owner'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Co-Owners & Admins</h1>
+          <p className="text-gray-500 mt-1">Manage people who can access and manage your hostel</p>
+        </div>
+        <button
+          onClick={handleAddNew}
+          className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium shadow-sm"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Owner
+        </button>
       </div>
+
+      {/* Message */}
+      {message.text && (
+        <div className={`p-4 rounded-lg flex items-center gap-3 ${
+          message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' :
+          message.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
+          'bg-blue-50 text-blue-800 border border-blue-200'
+        }`}>
+          <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {message.type === 'success' ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            )}
+          </svg>
+          {message.text}
+        </div>
+      )}
+
+      {/* Owners Grid */}
+      {owners.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {owners.map((owner) => (
+            <UserCard
+              key={owner.id}
+              user={owner}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      ) : (
+        /* Empty State */
+        <div className="bg-white rounded-xl border-2 border-dashed border-gray-200 p-12 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">No co-owners yet</h3>
+          <p className="text-gray-500 mb-6">Add co-owners to help manage your hostel</p>
+          <button
+            onClick={handleAddNew}
+            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2 font-medium"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Your First Co-Owner
+          </button>
+        </div>
+      )}
+
+      {/* Modal */}
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingOwner ? 'Edit Owner' : 'Add New Owner'}>
+        <OwnerForm
+          form={form}
+          setForm={setForm}
+          errors={errors}
+          onSubmit={handleSave}
+          onCancel={handleCloseModal}
+          isEditing={!!editingOwner}
+          isLoading={isLoading}
+        />
+      </Modal>
     </div>
   )
 }

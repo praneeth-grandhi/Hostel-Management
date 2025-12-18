@@ -1,25 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router'
-import { Eye, EyeOff, Trash2, Check, AlertCircle } from 'lucide-react'
-
-const STORAGE_KEY = 'hostelManagement:userProfile'
-
-function loadProfile() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
-  } catch {
-    return {}
-  }
-}
-
-function saveProfile(profile) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
-  } catch {}
-}
+import { Eye, EyeOff, Check, AlertCircle } from 'lucide-react'
+import { FETCH_USER_PROFILE, UPDATE_USER_PROFILE, CHANGE_PASSWORD } from '../../Data/request'
 
 const ProfileSettings = () => {
-  const navigate = useNavigate()
   const [profile, setProfile] = useState({
     firstName: '',
     lastName: '',
@@ -43,21 +26,44 @@ const ProfileSettings = () => {
 
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
+  const [fetchingProfile, setFetchingProfile] = useState(true)
   const [success, setSuccess] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
-  const [activeTab, setActiveTab] = useState('profile') // 'profile', 'password', 'delete'
+  const [activeTab, setActiveTab] = useState('profile') // 'profile', 'password'
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
     confirm: false,
   })
-  const [deleteConfirmation, setDeleteConfirmation] = useState('')
 
+  // Fetch profile from backend on mount
   useEffect(() => {
-    const saved = loadProfile()
-    if (Object.keys(saved).length > 0) {
-      setProfile(saved)
+    const loadUserProfile = async () => {
+      try {
+        setFetchingProfile(true)
+        const data = await FETCH_USER_PROFILE()
+        setProfile({
+          firstName: data.first_name || '',
+          lastName: data.last_name || '',
+          email: data.email || '',
+          phone: data.phone_number || '',
+          countryCode: data.country_code || '',
+          address: data.address || '',
+          country: data.country || '',
+          city: data.city || '',
+          state: data.state || '',
+          zipCode: data.zip_code || '',
+          profilePicture: null,
+          profilePicturePreview: data.profile_picture || '',
+        })
+      } catch (err) {
+        console.error('Failed to fetch profile:', err)
+        setErrors({ general: 'Failed to load profile. Please try again.' })
+      } finally {
+        setFetchingProfile(false)
+      }
     }
+    loadUserProfile()
   }, [])
 
   const handleProfileChange = (e) => {
@@ -118,13 +124,35 @@ const ProfileSettings = () => {
     if (Object.keys(e_obj).length) return
 
     setLoading(true)
-    setTimeout(() => {
-      saveProfile(profile)
-      setLoading(false)
+    try {
+      // Build FormData for file upload support
+      const formData = new FormData()
+      formData.append('first_name', profile.firstName)
+      formData.append('last_name', profile.lastName)
+      formData.append('phone_number', profile.phone)
+      formData.append('country_code', profile.countryCode)
+      formData.append('address', profile.address)
+      formData.append('country', profile.country)
+      formData.append('city', profile.city)
+      formData.append('state', profile.state)
+      formData.append('zip_code', profile.zipCode)
+      
+      // Only append profile picture if a new file was selected
+      if (profile.profilePicture instanceof File) {
+        formData.append('profile_picture', profile.profilePicture)
+      }
+
+      await UPDATE_USER_PROFILE(formData)
       setSuccess(true)
       setSuccessMessage('Profile updated successfully!')
       setTimeout(() => setSuccess(false), 3000)
-    }, 600)
+    } catch (err) {
+      console.error('Failed to update profile:', err)
+      const errorMsg = err.response?.data?.detail || err.response?.data?.error || 'Failed to update profile. Please try again.'
+      setErrors({ general: errorMsg })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleChangePassword = async (e) => {
@@ -134,32 +162,34 @@ const ProfileSettings = () => {
     if (Object.keys(e_obj).length) return
 
     setLoading(true)
-    // Demo: In real app, backend would verify current password
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      await CHANGE_PASSWORD(passwords.currentPassword, passwords.newPassword)
       setSuccess(true)
       setSuccessMessage('Password changed successfully!')
       setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' })
       setTimeout(() => setSuccess(false), 3000)
-    }, 600)
+    } catch (err) {
+      console.error('Failed to change password:', err)
+      const errorMsg = err.response?.data?.error || 'Failed to change password. Please try again.'
+      setErrors({ general: errorMsg })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDeleteAccount = () => {
-    if (deleteConfirmation !== 'DELETE') {
-      setErrors({ confirm: 'Please type "DELETE" to confirm' })
-      return
-    }
-
-    setLoading(true)
-    setTimeout(() => {
-      try {
-        localStorage.removeItem(STORAGE_KEY)
-        localStorage.removeItem('hostelManagement:auth')
-        window.dispatchEvent(new Event('hostelAuthChange'))
-      } catch {}
-      setLoading(false)
-      navigate('/')
-    }, 600)
+  // Show loading while fetching profile
+  if (fetchingProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500 flex items-center gap-3">
+          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Loading profile...
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -182,7 +212,7 @@ const ProfileSettings = () => {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Personal Details
+              Profile Details
             </button>
             <button
               onClick={() => setActiveTab('password')}
@@ -194,16 +224,6 @@ const ProfileSettings = () => {
             >
               Change Password
             </button>
-            <button
-              onClick={() => setActiveTab('delete')}
-              className={`flex-1 px-6 py-4 text-center font-medium ${
-                activeTab === 'delete'
-                  ? 'border-b-2 border-red-600 text-red-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Delete Account
-            </button>
           </div>
 
           {/* Content */}
@@ -212,6 +232,13 @@ const ProfileSettings = () => {
               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
                 <Check className="w-5 h-5 text-green-600" />
                 <span className="text-green-800">{successMessage}</span>
+              </div>
+            )}
+
+            {errors.general && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <span className="text-red-800">{errors.general}</span>
               </div>
             )}
 
@@ -505,50 +532,6 @@ const ProfileSettings = () => {
               </form>
             )}
 
-            {/* Delete Account Tab */}
-            {activeTab === 'delete' && (
-              <div className="space-y-6 max-w-md">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-red-900 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5" />
-                    Danger Zone
-                  </h3>
-                  <p className="text-sm text-red-700 mt-2">
-                    Deleting your account is permanent and cannot be undone. All your data will be lost.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <p className="text-gray-700">
-                    To delete your account, type <span className="font-mono font-bold">DELETE</span> below:
-                  </p>
-                  <input
-                    type="text"
-                    value={deleteConfirmation}
-                    onChange={(e) => {
-                      setDeleteConfirmation(e.target.value)
-                      setErrors({})
-                    }}
-                    className={`w-full px-4 py-2 border rounded-lg ${
-                      errors.confirm ? 'border-red-400' : 'border-gray-200'
-                    }`}
-                    placeholder="Type DELETE to confirm"
-                  />
-                  {errors.confirm && <p className="text-xs text-red-600">{errors.confirm}</p>}
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleDeleteAccount}
-                    disabled={loading || deleteConfirmation !== 'DELETE'}
-                    className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60 font-medium flex items-center gap-2"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete Account
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

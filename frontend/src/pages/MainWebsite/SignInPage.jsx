@@ -32,13 +32,14 @@ const SignInPage = () => {
 
       console.log('Login response:', response)
 
-      // Store auth data including tokens and role
+      // Store auth data including tokens, role, and user info
       const authData = {
         authenticated: true,
         role: response.user?.role || 'user',
         email: data.email,
         access: response.access,
         refresh: response.refresh,
+        user: response.user,  // Store the full user object
         at: new Date().toISOString(),
       }
       
@@ -48,7 +49,7 @@ const SignInPage = () => {
       reset()
 
       // Redirect based on role from backend
-      if (response.user?.role === 'admin') {
+      if (response.user?.role === 'admin' || response.user?.role === 'coadmin') {
         navigate('/adminDashboard')
       } else {
         navigate('/')
@@ -66,7 +67,7 @@ const SignInPage = () => {
     try{
       const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
       if (auth && auth.authenticated) {
-        if(auth.role === 'admin'){
+        if(auth.role === 'admin' || auth.role === 'coadmin'){
           navigate('/adminDashboard')
         } else {
           navigate('/')
