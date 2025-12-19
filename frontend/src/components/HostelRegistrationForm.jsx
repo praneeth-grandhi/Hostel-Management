@@ -147,7 +147,7 @@ const HostelRegistrationForm = ({ adminData, onSubmitSuccess, onBack }) => {
               </label>
 
               <label className="block">
-                <span className="text-sm font-medium text-gray-700">Number of Rooms *</span>
+                <span className="text-sm font-medium text-gray-700">Approx. Number of Rooms *</span>
                 <input
                   type="number"
                   placeholder="10"
@@ -160,7 +160,7 @@ const HostelRegistrationForm = ({ adminData, onSubmitSuccess, onBack }) => {
               </label>
 
               <label className="block">
-                <span className="text-sm font-medium text-gray-700">Number of Floors *</span>
+                <span className="text-sm font-medium text-gray-700">Approx. Number of Floors *</span>
                 <input
                   type="number"
                   placeholder="3"
@@ -172,6 +172,10 @@ const HostelRegistrationForm = ({ adminData, onSubmitSuccess, onBack }) => {
                 {errors.floors && <p className="mt-1 text-xs text-red-600">{errors.floors.message}</p>}
               </label>
             </div>
+
+            <p className="text-xs text-gray-500 mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              💡 <strong>Note:</strong> These are upper limits only. You'll create the actual room structure (floors and rooms) later in your admin dashboard. Rooms won't be auto-distributed.
+            </p>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">Business Hours (optional)</span>

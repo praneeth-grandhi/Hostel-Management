@@ -45,3 +45,53 @@ class Hostel(models.Model):
 
     def __str__(self):
         return self.name
+    
+
+class Room(models.Model):
+    """Room model - one hostel can have multiple rooms"""
+    
+    SHARING_TYPE_CHOICES = [
+        ('single', 'Single'),
+        ('double', 'Double'),
+        ('triple', 'Triple'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('available', 'Available'),
+        ('occupied', 'Occupied'),
+    ]
+    
+    hostel = models.ForeignKey(
+        Hostel, 
+        on_delete=models.CASCADE, 
+        related_name='hostel_rooms'
+    )
+    room_code = models.CharField(max_length=20)  # e.g., "101", "A-201"
+    floor = models.IntegerField(default=1)
+    sharing_type = models.CharField(
+        max_length=10, 
+        choices=SHARING_TYPE_CHOICES, 
+        default='single'
+    )
+    rent = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    status = models.CharField(
+        max_length=15, 
+        choices=STATUS_CHOICES,
+        default='available'
+    )
+    is_maintenance = models.BooleanField(default=False)  # Separate from availability status
+    
+    # Features stored as JSON-like boolean fields
+    has_ac = models.BooleanField(default=False)
+    has_tv = models.BooleanField(default=False)
+    has_water_heater = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['hostel', 'room_code']  # Room code must be unique per hostel
+        ordering = ['floor', 'room_code']
+    
+    def __str__(self):
+        return f"Room {self.room_code} - {self.hostel.name}"

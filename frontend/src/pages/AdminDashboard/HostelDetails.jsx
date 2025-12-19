@@ -25,7 +25,6 @@ const blankForm = {
 
 const HostelDetails = () => {
   const [hostels, setHostels] = useState([])
-  const [selectedHostelId, setSelectedHostelId] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingHostel, setEditingHostel] = useState(null)
   const [form, setForm] = useState(blankForm)
@@ -35,21 +34,16 @@ const HostelDetails = () => {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  // Get role from backend
   const { isAdmin } = usePermissions()
 
-  // Load hostels on mount
   useEffect(() => {
     const loadHostelsData = async () => {
       try {
         setError(null)
         const data = await FETCH_HOSTELS()
         setHostels(data)
-        if (data.length > 0) {
-          setSelectedHostelId(data[0].id)
-        }
-      } catch (error) {
-        console.error('Failed to fetch hostels:', error)
+      } catch (err) {
+        console.error('Failed to fetch hostels:', err)
         setError('Failed to load hostels. Please try again.')
       } finally {
         setLoading(false)
@@ -57,8 +51,6 @@ const HostelDetails = () => {
     }
     loadHostelsData()
   }, [])
-
-  const selectedHostel = hostels.find((h) => h.id === selectedHostelId) || null
 
   const handleAddNew = () => {
     setForm(blankForm)
@@ -130,7 +122,6 @@ const HostelDetails = () => {
         // Create new hostel via API
         const newHostel = await CREATE_HOSTEL(hostelData)
         setHostels((prev) => [newHostel, ...prev])
-        setSelectedHostelId(newHostel.id)
         showMessage('Hostel added successfully!', 'success')
       }
       handleCloseModal()
@@ -148,13 +139,7 @@ const HostelDetails = () => {
     
     try {
       await DELETE_HOSTEL(hostelId)
-      const updatedHostels = hostels.filter((h) => h.id !== hostelId)
-      setHostels(updatedHostels)
-      if (hostelId === selectedHostelId && updatedHostels.length > 0) {
-        setSelectedHostelId(updatedHostels[0].id)
-      } else if (updatedHostels.length === 0) {
-        setSelectedHostelId(null)
-      }
+      setHostels(prev => prev.filter(h => h.id !== hostelId))
       showMessage('Hostel deleted.', 'info')
     } catch (err) {
       console.error('Failed to delete hostel:', err)
@@ -200,32 +185,12 @@ const HostelDetails = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header with Hostel Switcher */}
+      {/* Header */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Current Hostel</label>
-              <select
-                value={selectedHostelId || ''}
-                onChange={(e) => setSelectedHostelId(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-gray-800 min-w-[200px]"
-              >
-                {hostels.length === 0 && <option value="">No hostels available</option>}
-                {hostels.map((h) => (
-                  <option key={h.id} value={h.id}>{h.name}</option>
-                ))}
-              </select>
-            </div>
-            {selectedHostel && (
-              <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {selectedHostel.city}, {selectedHostel.state}
-              </div>
-            )}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Manage Hostels</h2>
+            <p className="text-sm text-gray-500 mt-1">Add, edit, or remove your hostel properties</p>
           </div>
           {isAdmin && (
             <button
@@ -266,8 +231,6 @@ const HostelDetails = () => {
             <HostelCard
               key={hostel.id}
               hostel={hostel}
-              isSelected={hostel.id === selectedHostelId}
-              onSelect={setSelectedHostelId}
               onEdit={isAdmin ? handleEdit : null}
               onDelete={isAdmin ? handleDelete : null}
             />

@@ -1,16 +1,17 @@
-import { Navigate, Outlet } from 'react-router'
+import { Navigate, Outlet, useLocation } from 'react-router'
 
 /**
- * ProtectedRoute - Prevents unauthenticated users from accessing protected pages
+ * ProtectedRoute - Controls access to protected pages based on authentication and role
  * 
  * Props:
- * - requiredRole: optional, if specified only users with this role can access
- * 
- * Usage in App.jsx:
- *   <Route element={<ProtectedRoute />}> ... </Route>
- *   <Route element={<ProtectedRoute requiredRole="admin" />}> ... </Route>
+ * - requiredRole: 'admin' | 'user' | undefined
+ *   - 'admin': Only admin/coadmin can access
+ *   - 'user': Only regular users can access (admin/coadmin blocked)
+ *   - undefined: Any authenticated user can access
  */
 const ProtectedRoute = ({ requiredRole }) => {
+  const location = useLocation()
+  
   try {
     const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
     
@@ -18,28 +19,35 @@ const ProtectedRoute = ({ requiredRole }) => {
     if (!auth?.authenticated) {
       return <Navigate to="/signin" replace />
     }
-    
-    // If a specific role is required, check it
-    if (requiredRole) {
-      // Allow both 'admin' and 'coadmin' to access admin dashboard
-      if (requiredRole === 'admin' && (auth.role === 'admin' || auth.role === 'coadmin')) {
+
+    const isAdminOrCoAdmin = auth.role === 'admin' || auth.role === 'coadmin'
+
+    // Admin routes - allow admin and coadmin
+    if (requiredRole === 'admin') {
+      if (isAdminOrCoAdmin) {
         return <Outlet />
       }
-      
-      if (auth.role !== requiredRole) {
-        // Wrong role - redirect to appropriate page
-        if (auth.role === 'admin' || auth.role === 'coadmin') {
-          return <Navigate to="/adminDashboard" replace />
-        } else {
-          return <Navigate to="/" replace />
-        }
-      }
+      // Regular user trying to access admin routes
+      return <Navigate to="/" replace />
     }
-    
-    // Authenticated (and correct role if required) - render the route
+
+    // User-only routes - block admin/coadmin
+    if (requiredRole === 'user') {
+      if (isAdminOrCoAdmin) {
+        return <Navigate to="/adminDashboard" replace />
+      }
+      return <Outlet />
+    }
+
+    // No specific role required - check if it's a user dashboard route
+    // and block admin/coadmin from accessing it
+    if (location.pathname.startsWith('/userDashboard') && isAdminOrCoAdmin) {
+      return <Navigate to="/adminDashboard" replace />
+    }
+
+    // Authenticated - render the route
     return <Outlet />
   } catch {
-    // Invalid auth data - redirect to signin
     return <Navigate to="/signin" replace />
   }
 }

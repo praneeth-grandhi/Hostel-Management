@@ -1,285 +1,642 @@
-import React, { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
-import { ArrowLeft, Phone, Mail, MapPin, Users, Building2, Wifi, Sofa, Utensils } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router'
+import { 
+  ArrowLeft, Phone, Mail, MapPin, Building2, Wifi, Utensils, Car, 
+  Dumbbell, BookOpen, Coffee, Waves, TreePine, ShowerHead, Wind,
+  Users, UserCircle, X, DoorOpen, AlertTriangle, IndianRupee
+} from 'lucide-react'
+import { FETCH_PUBLIC_HOSTEL_BY_ID } from '../../Data/request.js'
 
 const DisplayHostelPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
+  const { hostelId } = useParams()
+  
+  const [hostel, setHostel] = useState(location.state?.hostel || null)
+  const [loading, setLoading] = useState(!location.state?.hostel)
+  const [error, setError] = useState(null)
+  const [showRoomOverlay, setShowRoomOverlay] = useState(false)
   const [showEnquireForm, setShowEnquireForm] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     checkInDate: '',
-    numberOfPeople: '',
+    sharingType: '',
     message: ''
   })
 
-  const hostel = location.state?.hostel || null
+  // Fetch hostel if not passed via state (direct URL access)
+  useEffect(() => {
+    const fetchHostelData = async () => {
+      if (hostel) {
+        setLoading(false)
+        return
+      }
+      
+      if (!hostelId) {
+        setError('No hostel specified')
+        setLoading(false)
+        return
+      }
+      
+      try {
+        setLoading(true)
+        const data = await FETCH_PUBLIC_HOSTEL_BY_ID(hostelId)
+        setHostel(data)
+      } catch (err) {
+        console.error('Failed to fetch hostel:', err)
+        if (err.response?.status === 404) {
+          setError('Hostel not found')
+        } else {
+          setError('Failed to load hostel details')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchHostelData()
+  }, [hostelId])
 
-  if (!hostel) {
+  // Sample room data - in real app this would come from API
+  const generateRoomData = (totalRooms, floors) => {
+    const roomsPerFloor = Math.ceil(totalRooms / floors)
+    const floorData = []
+    let roomCount = 0
+    
+    for (let f = 1; f <= floors; f++) {
+      const floorRooms = []
+      const roomsOnThisFloor = Math.min(roomsPerFloor, totalRooms - roomCount)
+      
+      for (let r = 1; r <= roomsOnThisFloor; r++) {
+        roomCount++
+        // Random occupancy for demo - in real app this comes from backend
+        const isOccupied = Math.random() > 0.4
+        floorRooms.push({
+          roomNumber: `${f}${String(r).padStart(2, '0')}`,
+          isOccupied,
+          sharingType: ['single', 'double', 'triple'][Math.floor(Math.random() * 3)]
+        })
+      }
+      floorData.push({ floor: f, rooms: floorRooms })
+    }
+    return floorData
+  }
+
+  const [roomData, setRoomData] = useState([])
+
+  useEffect(() => {
+    if (hostel?.rooms && hostel?.floors) {
+      setRoomData(generateRoomData(hostel.rooms, hostel.floors))
+    }
+  }, [hostel])
+
+  // Calculate available rooms
+  const availableRooms = roomData.reduce((acc, floor) => {
+    return acc + floor.rooms.filter(r => !r.isOccupied).length
+  }, 0)
+
+  const totalRooms = hostel?.rooms || 0
+  const occupancyRate = totalRooms > 0 ? ((totalRooms - availableRooms) / totalRooms) * 100 : 0
+  const isFillingFast = availableRooms <= 5 || occupancyRate >= 80
+
+  // Pricing data
+  const pricing = {
+    single: { price: 12000, label: 'Single Sharing' },
+    double: { price: 10000, label: 'Double Sharing' },
+    triple: { price: 8000, label: 'Triple Sharing' }
+  }
+
+  // Hostel type config
+  const hostelTypeConfig = {
+    hostel: { label: 'Hostel', color: 'bg-blue-100 text-blue-800', icon: Building2 },
+    pg: { label: 'Paying Guest', color: 'bg-purple-100 text-purple-800', icon: Building2 },
+    hotel: { label: 'Hotel', color: 'bg-amber-100 text-amber-800', icon: Building2 }
+  }
+
+  // Category config (hostel_type can also indicate category or you can add a separate field)
+  const categoryConfig = {
+    mens: { label: "Men's Only", color: 'bg-blue-500', icon: UserCircle },
+    womens: { label: "Women's Only", color: 'bg-pink-500', icon: UserCircle },
+    unisex: { label: 'Unisex', color: 'bg-green-500', icon: Users }
+  }
+
+  // Determine category - for now using a sample, you can add this field to hostel model
+  const hostelCategory = hostel?.category || 'unisex'
+
+  // Amenity icons mapping
+  const amenityIcons = {
+    'WiFi': Wifi,
+    'wifi': Wifi,
+    'AC': Wind,
+    'ac': Wind,
+    'Hot Water': ShowerHead,
+    'hot water': ShowerHead,
+    'Gym': Dumbbell,
+    'gym': Dumbbell,
+    'Food': Utensils,
+    'food': Utensils,
+    'Kitchen': Utensils,
+    'kitchen': Utensils,
+    'Common Area': Coffee,
+    'common area': Coffee,
+    'Garden': TreePine,
+    'garden': TreePine,
+    'Parking': Car,
+    'parking': Car,
+    'Restaurant': Utensils,
+    'restaurant': Utensils,
+    'Laundry': Waves,
+    'laundry': Waves,
+    'Study Room': BookOpen,
+    'study room': BookOpen,
+    'Cafeteria': Coffee,
+    'cafeteria': Coffee
+  }
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmitEnquiry = (e) => {
+    e.preventDefault()
+    alert(`Enquiry sent for ${hostel.name}!\nWe will contact you soon.`)
+    setFormData({ name: '', email: '', phone: '', checkInDate: '', sharingType: '', message: '' })
+    setShowEnquireForm(false)
+  }
+
+  if (loading) {
     return (
-      <div className="container mx-auto p-8 text-center">
-        <p className="text-gray-500 text-lg">No hostel selected</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-500">
+          <svg className="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span className="text-lg">Loading hostel details...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !hostel) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
+        <div className="text-red-500 flex items-center gap-2 text-lg">
+          <AlertTriangle className="w-6 h-6" />
+          {error || 'Hostel not found'}
+        </div>
         <button 
           onClick={() => navigate('/')}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
         >
+          <ArrowLeft className="w-5 h-5" />
           Go Back to Home
         </button>
       </div>
     )
   }
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
+  const typeInfo = hostelTypeConfig[hostel.hostel_type] || hostelTypeConfig.hostel
+  const categoryInfo = categoryConfig[hostelCategory]
+  const TypeIcon = typeInfo.icon
+  const CategoryIcon = categoryInfo.icon
 
-  const handleSubmitEnquiry = (e) => {
-    e.preventDefault()
-    // Here you can add logic to send enquiry
-    alert(`Enquiry sent for ${hostel.name}!\nWe will contact you soon.`)
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      checkInDate: '',
-      numberOfPeople: '',
-      message: ''
-    })
-    setShowEnquireForm(false)
-  }
-
-  // Amenity icons mapping
-  const amenityIcons = {
-    'WiFi': <Wifi className="w-5 h-5" />,
-    'AC': <Building2 className="w-5 h-5" />,
-    'Hot Water': <Building2 className="w-5 h-5" />,
-    'Gym': <Users className="w-5 h-5" />,
-    'Food': <Utensils className="w-5 h-5" />,
-    'Kitchen': <Utensils className="w-5 h-5" />,
-    'Common Area': <Sofa className="w-5 h-5" />,
-    'Garden': <Building2 className="w-5 h-5" />,
-    'Parking': <Building2 className="w-5 h-5" />,
-    'Restaurant': <Utensils className="w-5 h-5" />,
-    'Laundry': <Building2 className="w-5 h-5" />,
-    'Beach Access': <Building2 className="w-5 h-5" />,
-    'Bar': <Sofa className="w-5 h-5" />,
-    'Study Room': <Building2 className="w-5 h-5" />,
-    'Cafeteria': <Utensils className="w-5 h-5" />,
-    'Yoga Studio': <Users className="w-5 h-5" />,
-    'Meditation': <Users className="w-5 h-5" />
-  }
+  // Parse amenities
+  const amenitiesList = hostel.amenities 
+    ? (typeof hostel.amenities === 'string' ? hostel.amenities.split(',').map(a => a.trim()) : hostel.amenities)
+    : []
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6 transition"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Back to Home</span>
-        </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header Bar */}
+      <div className="bg-white border-b sticky top-0 z-40">
+        <div className="container mx-auto px-4 py-4">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition font-medium"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Home</span>
+          </button>
+        </div>
+      </div>
 
-        {/* Main Content */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          {/* Hero Image */}
-          <div className="w-full h-96 bg-gray-200 overflow-hidden">
-            <img 
-              src={hostel.image} 
-              alt={hostel.name} 
-              className="w-full h-full object-cover"
-            />
+      <div className="container mx-auto px-4 py-8">
+        {/* Hero Section */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
+          {/* Image Gallery */}
+          <div className="relative h-80 md:h-96 bg-gradient-to-br from-blue-400 to-purple-500">
+            {hostel.image ? (
+              <img 
+                src={hostel.image} 
+                alt={hostel.name} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Building2 className="w-24 h-24 text-white/50" />
+              </div>
+            )}
+            
+            {/* Overlay badges */}
+            <div className="absolute top-4 left-4 flex flex-col gap-2">
+              <span className={`px-4 py-2 rounded-full font-semibold text-sm flex items-center gap-2 ${typeInfo.color}`}>
+                <TypeIcon className="w-4 h-4" />
+                {typeInfo.label}
+              </span>
+              <span className={`px-4 py-2 rounded-full font-semibold text-sm flex items-center gap-2 text-white ${categoryInfo.color}`}>
+                <CategoryIcon className="w-4 h-4" />
+                {categoryInfo.label}
+              </span>
+            </div>
+
+            {/* Filling fast badge */}
+            {isFillingFast && (
+              <div className="absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-full font-semibold text-sm flex items-center gap-2 animate-pulse">
+                <AlertTriangle className="w-4 h-4" />
+                Rooms are filling fast!!
+              </div>
+            )}
           </div>
 
-          {/* Content Section */}
-          <div className="p-8">
-            {/* Hostel Title and Type */}
-            <div className="mb-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h1 className="text-4xl font-bold text-gray-800 mb-2">{hostel.name}</h1>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <MapPin className="w-5 h-5" />
-                    <p className="text-lg">{hostel.address}</p>
-                  </div>
+          {/* Hostel Info */}
+          <div className="p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">{hostel.name}</h1>
+                <div className="flex items-center gap-2 text-gray-600">
+                  <MapPin className="w-5 h-5 text-red-500" />
+                  <p className="text-lg">
+                    {hostel.address}
+                    {hostel.city && `, ${hostel.city}`}
+                    {hostel.state && `, ${hostel.state}`}
+                  </p>
                 </div>
-                <div className="bg-green-100 px-4 py-2 rounded-lg">
-                  <p className="text-green-800 font-semibold">{hostel.type}</p>
-                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRoomOverlay(true)}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-semibold flex items-center gap-2 shadow-lg"
+                >
+                  <DoorOpen className="w-5 h-5" />
+                  View Rooms
+                </button>
+                <button
+                  onClick={() => setShowEnquireForm(true)}
+                  className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-semibold shadow-lg"
+                >
+                  Book Now
+                </button>
               </div>
             </div>
 
-            {/* Quick Info Cards */}
+            {/* Quick Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
                 <div className="flex items-center gap-2 mb-2">
                   <Building2 className="w-5 h-5 text-blue-600" />
-                  <p className="text-gray-600 text-sm">Total Rooms</p>
+                  <p className="text-gray-600 text-sm font-medium">Total Rooms</p>
                 </div>
-                <p className="text-2xl font-bold text-blue-600">{hostel.totalRooms}</p>
+                <p className="text-3xl font-bold text-blue-700">{hostel.rooms}</p>
               </div>
 
-              <div className="bg-green-50 p-4 rounded-lg">
+              <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
                 <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="w-5 h-5 text-green-600" />
-                  <p className="text-gray-600 text-sm">Floors</p>
+                  <DoorOpen className="w-5 h-5 text-green-600" />
+                  <p className="text-gray-600 text-sm font-medium">Available</p>
                 </div>
-                <p className="text-2xl font-bold text-green-600">{hostel.floors}</p>
+                <p className="text-3xl font-bold text-green-700">{availableRooms}</p>
               </div>
 
-              <div className="bg-purple-50 p-4 rounded-lg">
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
                 <div className="flex items-center gap-2 mb-2">
-                  <Phone className="w-5 h-5 text-purple-600" />
-                  <p className="text-gray-600 text-sm">Phone</p>
+                  <Building2 className="w-5 h-5 text-purple-600" />
+                  <p className="text-gray-600 text-sm font-medium">Floors</p>
                 </div>
-                <p className="text-lg font-bold text-purple-600">{hostel.contactPhone}</p>
+                <p className="text-3xl font-bold text-purple-700">{hostel.floors}</p>
               </div>
 
-              <div className="bg-orange-50 p-4 rounded-lg">
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl border border-amber-200">
                 <div className="flex items-center gap-2 mb-2">
-                  <Mail className="w-5 h-5 text-orange-600" />
-                  <p className="text-gray-600 text-sm">Email</p>
+                  <Utensils className="w-5 h-5 text-amber-600" />
+                  <p className="text-gray-600 text-sm font-medium">Food</p>
                 </div>
-                <p className="text-sm font-bold text-orange-600 break-all">{hostel.contactEmail}</p>
+                <p className="text-xl font-bold text-amber-700">{hostel.food_provided ? 'Included' : 'Not Included'}</p>
               </div>
+            </div>
+
+            {/* Pricing Section */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <IndianRupee className="w-6 h-6 text-green-600" />
+                Room Pricing
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {Object.entries(pricing).map(([key, { price, label }]) => (
+                  <div key={key} className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-md transition">
+                    <p className="text-gray-600 font-medium mb-1">{label}</p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-bold text-gray-900">₹{price.toLocaleString()}</span>
+                      <span className="text-gray-500">/month per person</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              {hostel.contact_phone && (
+                <a href={`tel:${hostel.contact_phone}`} className="flex items-center gap-3 bg-gray-50 p-4 rounded-xl hover:bg-gray-100 transition group">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition">
+                    <Phone className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-sm">Phone</p>
+                    <p className="text-lg font-semibold text-gray-900">{hostel.contact_phone}</p>
+                  </div>
+                </a>
+              )}
+              {hostel.contact_email && (
+                <a href={`mailto:${hostel.contact_email}`} className="flex items-center gap-3 bg-gray-50 p-4 rounded-xl hover:bg-gray-100 transition group">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition">
+                    <Mail className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-sm">Email</p>
+                    <p className="text-lg font-semibold text-gray-900">{hostel.contact_email}</p>
+                  </div>
+                </a>
+              )}
             </div>
 
             {/* Description */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">About This Hostel</h2>
-              <p className="text-gray-700 text-lg leading-relaxed">{hostel.description}</p>
-            </div>
-
-            {/* Amenities */}
-            {hostel.amenities && hostel.amenities.length > 0 && (
+            {hostel.description && (
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Amenities</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {hostel.amenities.map((amenity, index) => (
-                    <div key={index} className="flex items-center gap-3 bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition">
-                      <div className="text-blue-600">
-                        {amenityIcons[amenity] || <Building2 className="w-5 h-5" />}
-                      </div>
-                      <span className="text-gray-800 font-medium">{amenity}</span>
-                    </div>
-                  ))}
-                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">About This {typeInfo.label}</h2>
+                <p className="text-gray-700 text-lg leading-relaxed">{hostel.description}</p>
               </div>
             )}
 
-            {/* Enquire Now Button */}
-            <div className="mt-8 flex justify-center">
-              <button
-                onClick={() => setShowEnquireForm(!showEnquireForm)}
-                className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold rounded-lg transition transform hover:scale-105 shadow-lg"
-              >
-                {showEnquireForm ? 'Close' : 'Enquire Now'}
-              </button>
-            </div>
-
-            {/* Enquire Form */}
-            {showEnquireForm && (
-              <div className="mt-8 bg-gray-50 p-8 rounded-lg border-2 border-blue-200">
-                <h3 className="text-2xl font-bold text-gray-800 mb-6">Send Your Enquiry</h3>
-                <form onSubmit={handleSubmitEnquiry} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-2">Your Name</label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-                        placeholder="Enter your name"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-2">Email</label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-                        placeholder="Enter your email"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-2">Phone Number</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-                        placeholder="Enter your phone number"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 font-semibold mb-2">Check-in Date</label>
-                      <input
-                        type="date"
-                        name="checkInDate"
-                        value={formData.checkInDate}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-gray-700 font-semibold mb-2">Number of People</label>
-                    <input
-                      type="number"
-                      name="numberOfPeople"
-                      value={formData.numberOfPeople}
-                      onChange={handleInputChange}
-                      required
-                      min="1"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-                      placeholder="Number of people"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-gray-700 font-semibold mb-2">Message</label>
-                    <textarea
-                      name="message"
-                      value={formData.message}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600"
-                      rows="4"
-                      placeholder="Any special requirements or questions?"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition"
-                  >
-                    Submit Enquiry
-                  </button>
-                </form>
+            {/* Amenities */}
+            {amenitiesList.length > 0 && (
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Amenities</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {amenitiesList.map((amenity, index) => {
+                    const IconComponent = amenityIcons[amenity] || amenityIcons[amenity.toLowerCase()] || Building2
+                    return (
+                      <div key={index} className="flex items-center gap-3 bg-gray-50 p-4 rounded-xl hover:bg-blue-50 transition">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <IconComponent className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <span className="text-gray-800 font-medium">{amenity}</span>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Room Overlay Popup */}
+      {showRoomOverlay && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold">Room Availability</h2>
+                <p className="text-blue-100 mt-1">{hostel.floors} Floors • {hostel.rooms} Total Rooms</p>
+              </div>
+              <button
+                onClick={() => setShowRoomOverlay(false)}
+                className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Legend */}
+            <div className="px-6 py-4 bg-gray-50 border-b flex flex-wrap items-center gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                  <DoorOpen className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-gray-700 font-medium">Available ({availableRooms})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+                  <DoorOpen className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-gray-700 font-medium">Occupied ({totalRooms - availableRooms})</span>
+              </div>
+              {isFillingFast && (
+                <div className="flex items-center gap-2 text-red-600 font-semibold animate-pulse">
+                  <AlertTriangle className="w-5 h-5" />
+                  Rooms are filling fast!!
+                </div>
+              )}
+            </div>
+
+            {/* Pricing Quick View */}
+            <div className="px-6 py-4 bg-blue-50 border-b">
+              <div className="flex flex-wrap gap-4 justify-center">
+                <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
+                  <span className="text-gray-600">Single:</span>
+                  <span className="font-bold text-gray-900 ml-2">₹12,000/month</span>
+                </div>
+                <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
+                  <span className="text-gray-600">Double:</span>
+                  <span className="font-bold text-gray-900 ml-2">₹10,000/month</span>
+                </div>
+                <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
+                  <span className="text-gray-600">Triple:</span>
+                  <span className="font-bold text-gray-900 ml-2">₹8,000/month</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Floor Grid */}
+            <div className="p-6 overflow-y-auto max-h-[50vh]">
+              {roomData.map((floorData) => (
+                <div key={floorData.floor} className="mb-6 last:mb-0">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="bg-gray-800 text-white px-4 py-2 rounded-lg font-bold text-sm">
+                      Floor {floorData.floor}
+                    </div>
+                    <div className="h-px bg-gray-200 flex-1"></div>
+                    <span className="text-sm text-gray-500">
+                      {floorData.rooms.filter(r => !r.isOccupied).length} available
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                    {floorData.rooms.map((room) => (
+                      <div
+                        key={room.roomNumber}
+                        className={`
+                          relative aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer
+                          transition-all hover:scale-105 hover:shadow-lg group
+                          ${room.isOccupied 
+                            ? 'bg-gradient-to-br from-red-400 to-red-600 text-white' 
+                            : 'bg-gradient-to-br from-green-400 to-green-600 text-white'}
+                        `}
+                        title={`Room ${room.roomNumber} - ${room.isOccupied ? 'Occupied' : 'Available'} (${room.sharingType})`}
+                      >
+                        <DoorOpen className="w-4 h-4 md:w-5 md:h-5" />
+                        <span className="text-xs font-bold mt-0.5">{room.roomNumber}</span>
+                        
+                        {/* Tooltip on hover */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                          <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap">
+                            <p className="font-bold">Room {room.roomNumber}</p>
+                            <p className={room.isOccupied ? 'text-red-300' : 'text-green-300'}>
+                              {room.isOccupied ? 'Occupied' : 'Available'}
+                            </p>
+                            <p className="text-gray-300 capitalize">{room.sharingType} sharing</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t bg-gray-50 p-4 flex justify-between items-center">
+              <p className="text-gray-600">
+                <span className="font-bold text-green-600">{availableRooms}</span> rooms available out of <span className="font-bold">{totalRooms}</span>
+              </p>
+              <button
+                onClick={() => {
+                  setShowRoomOverlay(false)
+                  setShowEnquireForm(true)
+                }}
+                className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-semibold"
+              >
+                Book Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Enquire Form Modal */}
+      {showEnquireForm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 flex items-center justify-between rounded-t-2xl">
+              <div>
+                <h2 className="text-2xl font-bold">Book Your Room</h2>
+                <p className="text-green-100 mt-1">{hostel.name}</p>
+              </div>
+              <button
+                onClick={() => setShowEnquireForm(false)}
+                className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitEnquiry} className="p-6 space-y-4">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Your Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter your full name"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="your@email.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">Phone</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">Check-in Date</label>
+                  <input
+                    type="date"
+                    name="checkInDate"
+                    value={formData.checkInDate}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">Sharing Type</label>
+                  <select
+                    name="sharingType"
+                    value={formData.sharingType}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select sharing type</option>
+                    <option value="single">Single Sharing - ₹12,000/month</option>
+                    <option value="double">Double Sharing - ₹10,000/month</option>
+                    <option value="triple">Triple Sharing - ₹8,000/month</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Message (Optional)</label>
+                <textarea
+                  name="message"
+                  value={formData.message}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  rows="3"
+                  placeholder="Any special requirements or questions?"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-xl transition shadow-lg"
+              >
+                Submit Booking Request
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

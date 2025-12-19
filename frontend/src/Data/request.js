@@ -3,6 +3,23 @@ import axios from 'axios';
 const API_BASE_URL = 'http://127.0.0.1:8000/api/';
 
 
+// ============ PUBLIC APIs (No authentication required) ============
+
+// Fetch all hostels for public display (homepage)
+export const FETCH_PUBLIC_HOSTELS = async () => {
+    const response = await axios.get(`${API_BASE_URL}hostels/public/`);
+    return response.data;
+}
+
+// Fetch single hostel details for public display
+export const FETCH_PUBLIC_HOSTEL_BY_ID = async (hostelId) => {
+    const response = await axios.get(`${API_BASE_URL}hostels/public/${hostelId}/`);
+    return response.data;
+}
+
+
+// ============ AUTHENTICATED APIs ============
+
 // Get user permissions from backend (single source of truth)
 export const FETCH_USER_PERMISSIONS = async () => {
     const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
@@ -191,6 +208,56 @@ export const DELETE_CO_ADMIN = async (id) => {
 export const UPDATE_CO_ADMIN = async (id, data) => {
     const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
     const response = await axios.put(`${API_BASE_URL}co-admins/${id}/update/`, data, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// ============ ROOM APIs ============
+
+// Fetch all rooms for a specific hostel
+export const FETCH_ROOMS = async (hostelId) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const url = hostelId 
+        ? `${API_BASE_URL}rooms/?hostel_id=${hostelId}` 
+        : `${API_BASE_URL}rooms/`;
+    const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Create a new room
+export const CREATE_ROOM = async (roomData) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.post(`${API_BASE_URL}rooms/`, roomData, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Update a room
+export const UPDATE_ROOM = async (roomId, roomData) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.put(`${API_BASE_URL}rooms/${roomId}/`, roomData, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Delete a room
+export const DELETE_ROOM = async (roomId) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.delete(`${API_BASE_URL}rooms/${roomId}/`, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Fetch a single room by ID
+export const FETCH_ROOM_BY_ID = async (roomId) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.get(`${API_BASE_URL}rooms/${roomId}/`, {
         headers: { Authorization: `Bearer ${auth?.access}` }
     });
     return response.data;
