@@ -30,6 +30,19 @@ def public_hostel_detail(request, hostel_id):
         return Response({'error': 'Hostel not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_hostel_rooms(request, hostel_id):
+    """Get all rooms for a hostel (public viewing)"""
+    try:
+        hostel = Hostel.objects.get(id=hostel_id)
+        rooms = Room.objects.filter(hostel=hostel).order_by('floor', 'room_code')
+        serializer = RoomSerializer(rooms, many=True)
+        return Response(serializer.data)
+    except Hostel.DoesNotExist:
+        return Response({'error': 'Hostel not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
 # Create your views here.
 class HostelViewSet(viewsets.ModelViewSet):
     queryset = Hostel.objects.all()

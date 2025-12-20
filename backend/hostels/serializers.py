@@ -26,6 +26,10 @@ class PublicHostelSerializer(serializers.ModelSerializer):
             'amenities',
             'hostel_type',
             'food_provided',
+            'category',
+            'price_single',
+            'price_double',
+            'price_triple',
         ]
 
 
@@ -51,6 +55,10 @@ class HostelSerializer(serializers.ModelSerializer):
             'amenities',
             'hostel_type',
             'food_provided',
+            'category',
+            'price_single',
+            'price_double',
+            'price_triple',
             'owner_id_proof',
             'property_proof',
             'trade_license',

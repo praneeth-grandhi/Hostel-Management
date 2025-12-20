@@ -33,7 +33,7 @@ const RoomCardCarousel = ({
         {image ? (
           <img src={image} alt={name} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500">
+          <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-blue-400 to-purple-500">
             <Building2 className="w-12 h-12 text-white/70" />
           </div>
         )}

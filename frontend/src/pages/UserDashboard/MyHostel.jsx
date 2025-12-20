@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { DoorOpen, Calendar, MapPin, Phone, Mail, AlertTriangle, CheckCircle } from 'lucide-react'
 
 const STORAGE_KEY = 'hostelManagement:myHostel'
 
@@ -13,6 +14,16 @@ const sampleState = {
     description: 'Cozy hostel close to Cityville Tech Park with WiFi, meals and laundry.',
     amenities: ['WiFi', 'Laundry', 'Meals', 'Parking'],
     updatedAt: new Date().toISOString(),
+  },
+  // Current room assignment for the user
+  currentRoom: {
+    roomCode: '102',
+    floor: 1,
+    sharingType: 'double',
+    rent: 9000,
+    checkInDate: '2025-01-15',
+    checkOutDate: null,
+    features: { ac: true, tv: false, waterHeater: true },
   },
   rooms: [
     { id: 'r101', name: 'Room 101', type: 'Single', floor: 1, rent: 4500, occupied: true },
@@ -29,6 +40,29 @@ const sampleState = {
       description: 'Room 102 geyser is not heating properly since yesterday.',
       status: 'open',
       createdAt: new Date().toISOString(),
+    },
+  ],
+  // Past bookings history
+  pastBookings: [
+    {
+      id: 'pb-1',
+      hostelName: 'Sunrise PG',
+      roomCode: '205',
+      sharingType: 'triple',
+      checkIn: '2024-06-01',
+      checkOut: '2024-12-31',
+      rent: 7500,
+      status: 'completed',
+    },
+    {
+      id: 'pb-2',
+      hostelName: 'City Center Hostel',
+      roomCode: '101',
+      sharingType: 'single',
+      checkIn: '2024-01-01',
+      checkOut: '2024-05-31',
+      rent: 6000,
+      status: 'completed',
     },
   ],
   primaryBooking: {
@@ -57,6 +91,8 @@ function saveState(state) {
 
 const MyHostel = () => {
   const [hostel, setHostel] = useState(sampleState.hostel)
+  const [currentRoom, setCurrentRoom] = useState(sampleState.currentRoom)
+  const [pastBookings, setPastBookings] = useState(sampleState.pastBookings)
   const [rooms, setRooms] = useState(sampleState.rooms)
   const [bookedRoomIds, setBookedRoomIds] = useState(sampleState.bookedRoomIds)
   const [complaints, setComplaints] = useState(sampleState.complaints)
@@ -72,6 +108,8 @@ const MyHostel = () => {
     const existing = loadState()
     if (existing) {
       setHostel(existing.hostel)
+      setCurrentRoom(existing.currentRoom || sampleState.currentRoom)
+      setPastBookings(existing.pastBookings || sampleState.pastBookings)
       setRooms(existing.rooms)
       setBookedRoomIds(existing.bookedRoomIds || [])
       setComplaints(existing.complaints || [])
@@ -84,6 +122,8 @@ const MyHostel = () => {
   const persist = (next = {}) => {
     const payload = {
       hostel: next.hostel ?? hostel,
+      currentRoom: next.currentRoom ?? currentRoom,
+      pastBookings: next.pastBookings ?? pastBookings,
       rooms: next.rooms ?? rooms,
       bookedRoomIds: next.bookedRoomIds ?? bookedRoomIds,
       complaints: next.complaints ?? complaints,
@@ -149,6 +189,89 @@ const MyHostel = () => {
         {message && <div className="text-base text-green-800 bg-green-100 px-4 py-2 rounded-lg">{message}</div>}
       </header>
 
+      {/* Current Room Section - Prominent Display */}
+      {currentRoom && (
+        <section className="bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <DoorOpen className="w-6 h-6" />
+                <span className="text-blue-100 text-sm font-medium">Your Current Room</span>
+              </div>
+              <h2 className="text-4xl font-bold mb-1">Room {currentRoom.roomCode}</h2>
+              <p className="text-blue-100 capitalize">{currentRoom.sharingType} Sharing • Floor {currentRoom.floor}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-blue-100 text-sm">Monthly Rent</p>
+              <p className="text-3xl font-bold">₹{currentRoom.rent?.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-blue-100 text-sm">Check-in Date</p>
+              <p className="font-semibold flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                {currentRoom.checkInDate}
+              </p>
+            </div>
+            <div>
+              <p className="text-blue-100 text-sm">Check-out Date</p>
+              <p className="font-semibold">{currentRoom.checkOutDate || 'Ongoing'}</p>
+            </div>
+            <div>
+              <p className="text-blue-100 text-sm">Room Features</p>
+              <p className="font-semibold text-sm">
+                {[
+                  currentRoom.features?.ac && 'AC',
+                  currentRoom.features?.tv && 'TV',
+                  currentRoom.features?.waterHeater && 'Geyser'
+                ].filter(Boolean).join(', ') || 'None'}
+              </p>
+            </div>
+            <div>
+              <p className="text-blue-100 text-sm">Status</p>
+              <p className="font-semibold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-300" />
+                Active
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Past Bookings Section */}
+      {pastBookings && pastBookings.length > 0 && (
+        <section className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+          <div className="p-5 border-b bg-gray-50">
+            <h2 className="text-xl font-semibold text-gray-900">Past Bookings</h2>
+            <p className="text-sm text-gray-500 mt-1">Your previous stays</p>
+          </div>
+          <div className="divide-y">
+            {pastBookings.map((booking) => (
+              <div key={booking.id} className="p-5 flex items-center gap-4 hover:bg-gray-50">
+                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <DoorOpen className="w-6 h-6 text-gray-500" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">{booking.hostelName}</h3>
+                  <p className="text-sm text-gray-500">
+                    Room {booking.roomCode} • {booking.sharingType} sharing
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">{booking.checkIn} → {booking.checkOut}</p>
+                  <p className="font-semibold text-gray-900">₹{booking.rent?.toLocaleString()}/month</p>
+                </div>
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium capitalize">
+                  {booking.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-2xl border shadow-sm">
@@ -171,15 +294,15 @@ const MyHostel = () => {
             <dl className="space-y-3 text-base text-gray-700">
               <div>
                 <dt className="font-medium text-gray-500">Address</dt>
-                <dd>{hostel.address}</dd>
+                <dd className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" />{hostel.address}</dd>
               </div>
               <div>
                 <dt className="font-medium text-gray-500">Contact email</dt>
-                <dd>{hostel.contactEmail}</dd>
+                <dd className="flex items-center gap-2"><Mail className="w-4 h-4 text-gray-400" />{hostel.contactEmail}</dd>
               </div>
               <div>
                 <dt className="font-medium text-gray-500">Contact phone</dt>
-                <dd>{hostel.contactPhone}</dd>
+                <dd className="flex items-center gap-2"><Phone className="w-4 h-4 text-gray-400" />{hostel.contactPhone}</dd>
               </div>
               <div>
                 <dt className="font-medium text-gray-500">Floors</dt>

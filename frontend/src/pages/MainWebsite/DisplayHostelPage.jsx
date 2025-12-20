@@ -3,9 +3,9 @@ import { useLocation, useNavigate, useParams } from 'react-router'
 import { 
   ArrowLeft, Phone, Mail, MapPin, Building2, Wifi, Utensils, Car, 
   Dumbbell, BookOpen, Coffee, Waves, TreePine, ShowerHead, Wind,
-  Users, UserCircle, X, DoorOpen, AlertTriangle, IndianRupee
+  Users, UserCircle, X, DoorOpen, AlertTriangle, IndianRupee, Wrench
 } from 'lucide-react'
-import { FETCH_PUBLIC_HOSTEL_BY_ID } from '../../Data/request.js'
+import { FETCH_PUBLIC_HOSTEL_BY_ID, FETCH_PUBLIC_HOSTEL_ROOMS } from '../../Data/request.js'
 
 const DisplayHostelPage = () => {
   const location = useLocation()
@@ -59,54 +59,73 @@ const DisplayHostelPage = () => {
     fetchHostelData()
   }, [hostelId])
 
-  // Sample room data - in real app this would come from API
-  const generateRoomData = (totalRooms, floors) => {
-    const roomsPerFloor = Math.ceil(totalRooms / floors)
-    const floorData = []
-    let roomCount = 0
-    
-    for (let f = 1; f <= floors; f++) {
-      const floorRooms = []
-      const roomsOnThisFloor = Math.min(roomsPerFloor, totalRooms - roomCount)
-      
-      for (let r = 1; r <= roomsOnThisFloor; r++) {
-        roomCount++
-        // Random occupancy for demo - in real app this comes from backend
-        const isOccupied = Math.random() > 0.4
-        floorRooms.push({
-          roomNumber: `${f}${String(r).padStart(2, '0')}`,
-          isOccupied,
-          sharingType: ['single', 'double', 'triple'][Math.floor(Math.random() * 3)]
-        })
-      }
-      floorData.push({ floor: f, rooms: floorRooms })
-    }
-    return floorData
-  }
-
   const [roomData, setRoomData] = useState([])
+  const [roomsLoading, setRoomsLoading] = useState(false)
 
+  // Fetch real room data from API
   useEffect(() => {
-    if (hostel?.rooms && hostel?.floors) {
-      setRoomData(generateRoomData(hostel.rooms, hostel.floors))
+    const fetchRooms = async () => {
+      if (!hostel?.id) return
+      
+      try {
+        setRoomsLoading(true)
+        const rooms = await FETCH_PUBLIC_HOSTEL_ROOMS(hostel.id)
+        
+        // Group rooms by floor
+        const floorMap = {}
+        rooms.forEach(room => {
+          const floor = room.floor || 1
+          if (!floorMap[floor]) {
+            floorMap[floor] = []
+          }
+          floorMap[floor].push({
+            id: room.id,
+            roomNumber: room.room_code,
+            isOccupied: room.status === 'occupied',
+            isMaintenance: room.is_maintenance,
+            sharingType: room.sharing_type,
+            rent: room.rent,
+            features: room.features || {}
+          })
+        })
+        
+        // Convert to array format sorted by floor
+        const floorData = Object.keys(floorMap)
+          .sort((a, b) => Number(a) - Number(b))
+          .map(floor => ({
+            floor: Number(floor),
+            rooms: floorMap[floor].sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true }))
+          }))
+        
+        setRoomData(floorData)
+      } catch (err) {
+        console.error('Failed to fetch rooms:', err)
+      } finally {
+        setRoomsLoading(false)
+      }
     }
-  }, [hostel])
+    
+    fetchRooms()
+  }, [hostel?.id])
 
   // Calculate available rooms
   const availableRooms = roomData.reduce((acc, floor) => {
-    return acc + floor.rooms.filter(r => !r.isOccupied).length
+    return acc + floor.rooms.filter(r => !r.isOccupied && !r.isMaintenance).length
   }, 0)
 
-  const totalRooms = hostel?.rooms || 0
+  const totalRooms = roomData.reduce((acc, floor) => acc + floor.rooms.length, 0) || hostel?.rooms || 0
   const occupancyRate = totalRooms > 0 ? ((totalRooms - availableRooms) / totalRooms) * 100 : 0
   const isFillingFast = availableRooms <= 5 || occupancyRate >= 80
 
-  // Pricing data
+  // Pricing data - use backend values or defaults
   const pricing = {
-    single: { price: 12000, label: 'Single Sharing' },
-    double: { price: 10000, label: 'Double Sharing' },
-    triple: { price: 8000, label: 'Triple Sharing' }
+    single: { price: Number(hostel?.price_single) || 0, label: 'Single Sharing' },
+    double: { price: Number(hostel?.price_double) || 0, label: 'Double Sharing' },
+    triple: { price: Number(hostel?.price_triple) || 0, label: 'Triple Sharing' }
   }
+  
+  // Check if pricing is available
+  const hasPricing = pricing.single.price > 0 || pricing.double.price > 0 || pricing.triple.price > 0
 
   // Hostel type config
   const hostelTypeConfig = {
@@ -115,15 +134,12 @@ const DisplayHostelPage = () => {
     hotel: { label: 'Hotel', color: 'bg-amber-100 text-amber-800', icon: Building2 }
   }
 
-  // Category config (hostel_type can also indicate category or you can add a separate field)
+  // Category config
   const categoryConfig = {
     mens: { label: "Men's Only", color: 'bg-blue-500', icon: UserCircle },
     womens: { label: "Women's Only", color: 'bg-pink-500', icon: UserCircle },
     unisex: { label: 'Unisex', color: 'bg-green-500', icon: Users }
   }
-
-  // Determine category - for now using a sample, you can add this field to hostel model
-  const hostelCategory = hostel?.category || 'unisex'
 
   // Amenity icons mapping
   const amenityIcons = {
@@ -200,9 +216,9 @@ const DisplayHostelPage = () => {
   }
 
   const typeInfo = hostelTypeConfig[hostel.hostel_type] || hostelTypeConfig.hostel
-  const categoryInfo = categoryConfig[hostelCategory]
+  const categoryInfo = hostel?.category ? categoryConfig[hostel.category] : null
   const TypeIcon = typeInfo.icon
-  const CategoryIcon = categoryInfo.icon
+  const CategoryIcon = categoryInfo?.icon
 
   // Parse amenities
   const amenitiesList = hostel.amenities 
@@ -228,7 +244,7 @@ const DisplayHostelPage = () => {
         {/* Hero Section */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
           {/* Image Gallery */}
-          <div className="relative h-80 md:h-96 bg-gradient-to-br from-blue-400 to-purple-500">
+          <div className="relative h-80 md:h-96 bg-linear-to-br from-blue-400 to-purple-500">
             {hostel.image ? (
               <img 
                 src={hostel.image} 
@@ -243,14 +259,18 @@ const DisplayHostelPage = () => {
             
             {/* Overlay badges */}
             <div className="absolute top-4 left-4 flex flex-col gap-2">
-              <span className={`px-4 py-2 rounded-full font-semibold text-sm flex items-center gap-2 ${typeInfo.color}`}>
-                <TypeIcon className="w-4 h-4" />
-                {typeInfo.label}
-              </span>
-              <span className={`px-4 py-2 rounded-full font-semibold text-sm flex items-center gap-2 text-white ${categoryInfo.color}`}>
-                <CategoryIcon className="w-4 h-4" />
-                {categoryInfo.label}
-              </span>
+              {hostel.hostel_type && (
+                <span className={`px-4 py-2 rounded-full font-semibold text-sm flex items-center gap-2 ${typeInfo.color}`}>
+                  <TypeIcon className="w-4 h-4" />
+                  {typeInfo.label}
+                </span>
+              )}
+              {categoryInfo && (
+                <span className={`px-4 py-2 rounded-full font-semibold text-sm flex items-center gap-2 text-white ${categoryInfo.color}`}>
+                  <CategoryIcon className="w-4 h-4" />
+                  {categoryInfo.label}
+                </span>
+              )}
             </div>
 
             {/* Filling fast badge */}
@@ -277,7 +297,7 @@ const DisplayHostelPage = () => {
                 </div>
               </div>
               
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => setShowRoomOverlay(true)}
                   className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-semibold flex items-center gap-2 shadow-lg"
@@ -296,7 +316,7 @@ const DisplayHostelPage = () => {
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
+              <div className="bg-linear-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
                 <div className="flex items-center gap-2 mb-2">
                   <Building2 className="w-5 h-5 text-blue-600" />
                   <p className="text-gray-600 text-sm font-medium">Total Rooms</p>
@@ -304,7 +324,7 @@ const DisplayHostelPage = () => {
                 <p className="text-3xl font-bold text-blue-700">{hostel.rooms}</p>
               </div>
 
-              <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
+              <div className="bg-linear-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
                 <div className="flex items-center gap-2 mb-2">
                   <DoorOpen className="w-5 h-5 text-green-600" />
                   <p className="text-gray-600 text-sm font-medium">Available</p>
@@ -312,7 +332,7 @@ const DisplayHostelPage = () => {
                 <p className="text-3xl font-bold text-green-700">{availableRooms}</p>
               </div>
 
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
+              <div className="bg-linear-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
                 <div className="flex items-center gap-2 mb-2">
                   <Building2 className="w-5 h-5 text-purple-600" />
                   <p className="text-gray-600 text-sm font-medium">Floors</p>
@@ -320,7 +340,7 @@ const DisplayHostelPage = () => {
                 <p className="text-3xl font-bold text-purple-700">{hostel.floors}</p>
               </div>
 
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl border border-amber-200">
+              <div className="bg-linear-to-br from-amber-50 to-amber-100 p-4 rounded-xl border border-amber-200">
                 <div className="flex items-center gap-2 mb-2">
                   <Utensils className="w-5 h-5 text-amber-600" />
                   <p className="text-gray-600 text-sm font-medium">Food</p>
@@ -330,23 +350,25 @@ const DisplayHostelPage = () => {
             </div>
 
             {/* Pricing Section */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <IndianRupee className="w-6 h-6 text-green-600" />
-                Room Pricing
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {Object.entries(pricing).map(([key, { price, label }]) => (
-                  <div key={key} className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-md transition">
-                    <p className="text-gray-600 font-medium mb-1">{label}</p>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold text-gray-900">₹{price.toLocaleString()}</span>
-                      <span className="text-gray-500">/month per person</span>
+            {hasPricing && (
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <IndianRupee className="w-6 h-6 text-green-600" />
+                  Room Pricing
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {Object.entries(pricing).filter(([_, { price }]) => price > 0).map(([key, { price, label }]) => (
+                    <div key={key} className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-md transition">
+                      <p className="text-gray-600 font-medium mb-1">{label}</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold text-gray-900">₹{price.toLocaleString()}</span>
+                        <span className="text-gray-500">/month per person</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Contact Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -410,7 +432,7 @@ const DisplayHostelPage = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 flex items-center justify-between">
+            <div className="bg-linear-to-r from-blue-600 to-purple-600 text-white p-6 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold">Room Availability</h2>
                 <p className="text-blue-100 mt-1">{hostel.floors} Floors • {hostel.rooms} Total Rooms</p>
@@ -435,7 +457,13 @@ const DisplayHostelPage = () => {
                 <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
                   <DoorOpen className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-gray-700 font-medium">Occupied ({totalRooms - availableRooms})</span>
+                <span className="text-gray-700 font-medium">Occupied ({roomData.reduce((acc, f) => acc + f.rooms.filter(r => r.isOccupied).length, 0)})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+                  <Wrench className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-gray-700 font-medium">Maintenance ({roomData.reduce((acc, f) => acc + f.rooms.filter(r => r.isMaintenance).length, 0)})</span>
               </div>
               {isFillingFast && (
                 <div className="flex items-center gap-2 text-red-600 font-semibold animate-pulse">
@@ -446,67 +474,98 @@ const DisplayHostelPage = () => {
             </div>
 
             {/* Pricing Quick View */}
-            <div className="px-6 py-4 bg-blue-50 border-b">
-              <div className="flex flex-wrap gap-4 justify-center">
-                <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
-                  <span className="text-gray-600">Single:</span>
-                  <span className="font-bold text-gray-900 ml-2">₹12,000/month</span>
-                </div>
-                <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
-                  <span className="text-gray-600">Double:</span>
-                  <span className="font-bold text-gray-900 ml-2">₹10,000/month</span>
-                </div>
-                <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
-                  <span className="text-gray-600">Triple:</span>
-                  <span className="font-bold text-gray-900 ml-2">₹8,000/month</span>
+            {hasPricing && (
+              <div className="px-6 py-4 bg-blue-50 border-b">
+                <div className="flex flex-wrap gap-4 justify-center">
+                  {pricing.single.price > 0 && (
+                    <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
+                      <span className="text-gray-600">Single:</span>
+                      <span className="font-bold text-gray-900 ml-2">₹{pricing.single.price.toLocaleString()}/month</span>
+                    </div>
+                  )}
+                  {pricing.double.price > 0 && (
+                    <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
+                      <span className="text-gray-600">Double:</span>
+                      <span className="font-bold text-gray-900 ml-2">₹{pricing.double.price.toLocaleString()}/month</span>
+                    </div>
+                  )}
+                  {pricing.triple.price > 0 && (
+                    <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
+                      <span className="text-gray-600">Triple:</span>
+                      <span className="font-bold text-gray-900 ml-2">₹{pricing.triple.price.toLocaleString()}/month</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Floor Grid */}
             <div className="p-6 overflow-y-auto max-h-[50vh]">
-              {roomData.map((floorData) => (
-                <div key={floorData.floor} className="mb-6 last:mb-0">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-gray-800 text-white px-4 py-2 rounded-lg font-bold text-sm">
-                      Floor {floorData.floor}
+              {roomsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="ml-3 text-gray-600">Loading rooms...</span>
+                </div>
+              ) : roomData.length === 0 ? (
+                <div className="text-center py-12">
+                  <DoorOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg">No rooms have been added yet</p>
+                  <p className="text-gray-400 text-sm mt-1">Contact the hostel for availability</p>
+                </div>
+              ) : (
+                roomData.map((floorData) => (
+                  <div key={floorData.floor} className="mb-6 last:mb-0">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-gray-800 text-white px-4 py-2 rounded-lg font-bold text-sm">
+                        Floor {floorData.floor}
+                      </div>
+                      <div className="h-px bg-gray-200 flex-1"></div>
+                      <span className="text-sm text-gray-500">
+                        {floorData.rooms.filter(r => !r.isOccupied && !r.isMaintenance).length} available
+                      </span>
                     </div>
-                    <div className="h-px bg-gray-200 flex-1"></div>
-                    <span className="text-sm text-gray-500">
-                      {floorData.rooms.filter(r => !r.isOccupied).length} available
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-                    {floorData.rooms.map((room) => (
-                      <div
-                        key={room.roomNumber}
-                        className={`
-                          relative aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer
+                    <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                      {floorData.rooms.map((room) => (
+                        <div
+                          key={room.roomNumber}
+                          className={`
+                            relative aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer
                           transition-all hover:scale-105 hover:shadow-lg group
-                          ${room.isOccupied 
-                            ? 'bg-gradient-to-br from-red-400 to-red-600 text-white' 
-                            : 'bg-gradient-to-br from-green-400 to-green-600 text-white'}
+                          ${room.isMaintenance 
+                            ? 'bg-linear-to-br from-amber-400 to-amber-600 text-white'
+                            : room.isOccupied 
+                              ? 'bg-linear-to-br from-red-400 to-red-600 text-white' 
+                              : 'bg-linear-to-br from-green-400 to-green-600 text-white'}
                         `}
-                        title={`Room ${room.roomNumber} - ${room.isOccupied ? 'Occupied' : 'Available'} (${room.sharingType})`}
+                        title={`Room ${room.roomNumber} - ${room.isMaintenance ? 'Under Maintenance' : room.isOccupied ? 'Occupied' : 'Available'} (${room.sharingType})`}
                       >
-                        <DoorOpen className="w-4 h-4 md:w-5 md:h-5" />
+                        {room.isMaintenance ? (
+                          <Wrench className="w-4 h-4 md:w-5 md:h-5" />
+                        ) : (
+                          <DoorOpen className="w-4 h-4 md:w-5 md:h-5" />
+                        )}
                         <span className="text-xs font-bold mt-0.5">{room.roomNumber}</span>
                         
                         {/* Tooltip on hover */}
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
                           <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap">
                             <p className="font-bold">Room {room.roomNumber}</p>
-                            <p className={room.isOccupied ? 'text-red-300' : 'text-green-300'}>
-                              {room.isOccupied ? 'Occupied' : 'Available'}
+                            <p className={room.isMaintenance ? 'text-amber-300' : room.isOccupied ? 'text-red-300' : 'text-green-300'}>
+                              {room.isMaintenance ? 'Under Maintenance' : room.isOccupied ? 'Occupied' : 'Available'}
                             </p>
                             <p className="text-gray-300 capitalize">{room.sharingType} sharing</p>
+                            {room.rent > 0 && <p className="text-gray-300">₹{Number(room.rent).toLocaleString()}/month</p>}
                           </div>
                         </div>
                       </div>
                     ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             {/* Footer */}
@@ -532,7 +591,7 @@ const DisplayHostelPage = () => {
       {showEnquireForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 flex items-center justify-between rounded-t-2xl">
+            <div className="bg-linear-to-r from-green-600 to-emerald-600 text-white p-6 flex items-center justify-between rounded-t-2xl">
               <div>
                 <h2 className="text-2xl font-bold">Book Your Room</h2>
                 <p className="text-green-100 mt-1">{hostel.name}</p>
@@ -629,7 +688,7 @@ const DisplayHostelPage = () => {
 
               <button
                 type="submit"
-                className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-xl transition shadow-lg"
+                className="w-full px-6 py-4 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-xl transition shadow-lg"
               >
                 Submit Booking Request
               </button>

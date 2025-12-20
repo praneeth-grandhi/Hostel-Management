@@ -19,6 +19,11 @@ const HostelRegistrationForm = ({ adminData, onSubmitSuccess, onBack }) => {
       rooms: '',
       floors: '',
       business_hours: '',
+      description: '',
+      category: 'unisex',
+      price_single: '',
+      price_double: '',
+      price_triple: '',
     },
   })
 
@@ -186,6 +191,72 @@ const HostelRegistrationForm = ({ adminData, onSubmitSuccess, onBack }) => {
                 className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200"
               />
             </label>
+
+            <label className="block mt-4">
+              <span className="text-sm font-medium text-gray-700">Description (optional)</span>
+              <textarea
+                placeholder="Tell potential guests about your hostel - facilities, environment, nearby attractions, etc."
+                rows={4}
+                {...register('description')}
+                className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200 resize-none"
+              />
+            </label>
+          </div>
+
+          {/* ========== CATEGORY & PRICING ========== */}
+          <div className="border-b pb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Category & Pricing</h2>
+
+            <label className="block mb-4">
+              <span className="text-sm font-medium text-gray-700">Hostel Category *</span>
+              <select
+                {...register('category', { required: 'Category is required' })}
+                className={`mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none ${
+                  errors.category ? 'border-red-400' : 'border-gray-200'
+                }`}
+              >
+                <option value="mens">Men's Only</option>
+                <option value="womens">Women's Only</option>
+                <option value="unisex">Unisex (Co-ed)</option>
+              </select>
+              {errors.category && <p className="mt-1 text-xs text-red-600">{errors.category.message}</p>}
+            </label>
+
+            <p className="text-sm text-gray-600 mb-3">Monthly Rent Pricing (optional - can be set later)</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Single Sharing (₹/month)</span>
+                <input
+                  type="number"
+                  placeholder="12000"
+                  {...register('price_single', { min: { value: 0, message: 'Must be positive' } })}
+                  className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200"
+                />
+                {errors.price_single && <p className="mt-1 text-xs text-red-600">{errors.price_single.message}</p>}
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Double Sharing (₹/month)</span>
+                <input
+                  type="number"
+                  placeholder="10000"
+                  {...register('price_double', { min: { value: 0, message: 'Must be positive' } })}
+                  className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200"
+                />
+                {errors.price_double && <p className="mt-1 text-xs text-red-600">{errors.price_double.message}</p>}
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Triple Sharing (₹/month)</span>
+                <input
+                  type="number"
+                  placeholder="8000"
+                  {...register('price_triple', { min: { value: 0, message: 'Must be positive' } })}
+                  className="mt-1 block w-full px-4 py-2 border rounded-lg focus:outline-none border-gray-200"
+                />
+                {errors.price_triple && <p className="mt-1 text-xs text-red-600">{errors.price_triple.message}</p>}
+              </label>
+            </div>
           </div>
 
           {/* ========== INFO BOX ========== */}

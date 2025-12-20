@@ -18,6 +18,24 @@ class Hostel(models.Model):
     description = models.TextField(blank=True, null=True, default=None)
     amenities = models.TextField(blank=True, null=True, default=None)
     
+    # Hostel Category
+    CATEGORY_CHOICES = [
+        ('mens', "Men's"),
+        ('womens', "Women's"),
+        ('unisex', 'Unisex'),
+    ]
+    category = models.CharField(
+        max_length=10,
+        choices=CATEGORY_CHOICES,
+        blank=True,
+        null=True
+    )
+    
+    # Pricing (per month per person)
+    price_single = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Monthly rent for single sharing")
+    price_double = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Monthly rent for double sharing")
+    price_triple = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Monthly rent for triple sharing")
+    
     # Verification & Document Fields
     hostel_type = models.CharField(
         max_length=20,

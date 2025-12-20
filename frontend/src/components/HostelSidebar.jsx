@@ -88,7 +88,7 @@ const HostelSidebar = ({ selectedHostelId, onSelectHostel, onHostelData, title, 
   return (
     <div className="flex h-full min-h-screen">
       {/* Sidebar */}
-      <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'} flex-shrink-0`}>
+      <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'} shrink-0`}>
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           {!sidebarCollapsed && <h2 className="font-semibold text-gray-800">Hostels</h2>}
           <button

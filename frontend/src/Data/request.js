@@ -17,6 +17,12 @@ export const FETCH_PUBLIC_HOSTEL_BY_ID = async (hostelId) => {
     return response.data;
 }
 
+// Fetch rooms for a specific hostel (public)
+export const FETCH_PUBLIC_HOSTEL_ROOMS = async (hostelId) => {
+    const response = await axios.get(`${API_BASE_URL}hostels/public/${hostelId}/rooms/`);
+    return response.data;
+}
+
 
 // ============ AUTHENTICATED APIs ============
 
