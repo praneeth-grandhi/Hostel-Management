@@ -78,8 +78,8 @@ function Navbar() {
     <nav className="bg-gray-800 p-4">
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link to="/" className="text-white text-3xl font-semibold hover:opacity-90">
-            Hostel Management
+          <Link to="/" className="text-white text-4xl font-semibold hover:opacity-90">
+            StayGhar
           </Link>
           <div className="hidden md:flex items-center gap-4 text-lg">
             <Link to="/" className="text-gray-300 hover:text-white px-3 py-1">Home</Link>

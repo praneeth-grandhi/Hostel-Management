@@ -48,3 +48,4 @@ media/
 # Environment variables
 .env
 .env.local
+backend/backend/.env

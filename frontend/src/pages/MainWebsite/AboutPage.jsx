@@ -6,7 +6,7 @@ const AboutPage = () => {
     <div className="max-w-6xl mx-auto py-16 px-6 space-y-12">
       {/* Hero */}
       <header className="text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900">About Hostel Management</h1>
+        <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900">About StayGhar</h1>
         <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
           We make managing hostels and bookings simple and reliable. Built for owners and guests — from listing rooms and handling bookings to managing complaints and payments.
         </p>
