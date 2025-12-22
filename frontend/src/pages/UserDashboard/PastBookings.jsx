@@ -1,308 +1,151 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { DoorOpen, Calendar, Search } from 'lucide-react'
+import { FETCH_BOOKINGS } from '../../Data/request'
 
-const STORAGE_KEY = 'hostelManagement:bookings'
-
-const sampleBookings = [
-    {
-        id: 'b_1',
-        hostelId: 'h_1',
-        hostelName: 'Green Valley Hostel',
-        user: 'praneeth.gsk@gmail.com',
-        from: '2025-11-01',
-        to: '2025-11-05',
-        nights: 4,
-        amount: 1200,
-        currency: 'INR',
-        paid: true,
-        paymentRef: 'PAY_abc123',
-        feedback: '',
-        createdAt: new Date().toISOString(),
-    },
-    {
-        id: 'b_2',
-        hostelId: 'h_2',
-        hostelName: 'Sunrise PG',
-        user: 'praneeth.gsk@gmail.com',
-        from: '2025-10-15',
-        to: '2025-10-17',
-        nights: 2,
-        amount: 700,
-        currency: 'INR',
-        paid: false,
-        paymentRef: '',
-        feedback: 'Rooms were clean but WiFi was slow.',
-        createdAt: new Date().toISOString(),
-    },
-]
-
-function loadBookings() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY)
-        if (!raw) return null
-        return JSON.parse(raw)
-    } catch {
-        return null
-    }
-}
-function saveBookings(list) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
-    } catch {}
-}
-
-export default function PastBookings() {
+const PastBookings = () => {
     const [bookings, setBookings] = useState([])
-    const [selectedId, setSelectedId] = useState(null)
+    const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
-    const [filterpaid, setFilterPaid] = useState('all') // all, paid, unpaid
-    const [feedbackText, setFeedbackText] = useState('')
-    const [message, setMessage] = useState('')
+    const [selected, setSelected] = useState(null)
 
     useEffect(() => {
-        const existing = loadBookings()
-        if (existing && existing.length) {
-            setBookings(existing)
-        } else {
-            setBookings(sampleBookings)
-            saveBookings(sampleBookings)
+        const fetchBookings = async () => {
+            try {
+                const data = await FETCH_BOOKINGS()
+                // Show all bookings
+                setBookings(data)
+                if (data.length > 0) setSelected(data[0])
+            } catch (err) {
+                console.error('Failed to fetch bookings:', err)
+            } finally {
+                setLoading(false)
+            }
         }
+        fetchBookings()
     }, [])
 
-    useEffect(() => {
-        if (selectedId) {
-            const b = bookings.find((x) => x.id === selectedId)
-            setFeedbackText(b?.feedback || '')
-        } else {
-            setFeedbackText('')
-        }
-    }, [selectedId, bookings])
+    const filtered = bookings.filter(b => {
+        if (!search) return true
+        const q = search.toLowerCase()
+        return (
+            b.hostel_name?.toLowerCase().includes(q) ||
+            b.room_code?.toLowerCase().includes(q) ||
+            b.booking_reference?.toLowerCase().includes(q)
+        )
+    })
 
-    const filtered = useMemo(() => {
-        const q = search.trim().toLowerCase()
-        return bookings.filter((b) => {
-            if (filterpaid === 'paid' && !b.paid) return false
-            if (filterpaid === 'unpaid' && b.paid) return false
-            if (!q) return true
-            return (
-                (b.hostelName || '').toLowerCase().includes(q) ||
-                (b.user || '').toLowerCase().includes(q) ||
-                (b.paymentRef || '').toLowerCase().includes(q)
-            )
-        })
-    }, [bookings, search, filterpaid])
-
-    const selectBooking = (id) => {
-        setSelectedId(id)
-        setMessage('')
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        )
     }
 
-    const saveFeedback = () => {
-        if (!selectedId) return
-        const idx = bookings.findIndex((b) => b.id === selectedId)
-        if (idx === -1) return
-        const updated = [...bookings]
-        updated[idx] = { ...updated[idx], feedback: feedbackText }
-        setBookings(updated)
-        saveBookings(updated)
-        setMessage('Feedback saved.')
-        setTimeout(() => setMessage(''), 2500)
-    }
-
-    const rebook = () => {
-        if (!selectedId) return
-        const orig = bookings.find((b) => b.id === selectedId)
-        if (!orig) return
-        const id = `b_${Date.now().toString(36)}`
-        const newBooking = {
-            ...orig,
-            id,
-            from: orig.from,
-            to: orig.to,
-            createdAt: new Date().toISOString(),
-            paid: false,
-            paymentRef: '',
-        }
-        const updated = [newBooking, ...bookings]
-        setBookings(updated)
-        saveBookings(updated)
-        setSelectedId(id)
-        setMessage('Rebooking created (unpaid).')
-        setTimeout(() => setMessage(''), 2500)
-    }
-
-    const cancelBooking = (id) => {
-        if (!confirm('Cancel this booking?')) return
-        const updated = bookings.filter((b) => b.id !== id)
-        setBookings(updated)
-        saveBookings(updated)
-        if (selectedId === id) setSelectedId(null)
-        setMessage('Booking cancelled.')
-        setTimeout(() => setMessage(''), 2500)
+    if (bookings.length === 0) {
+        return (
+            <div className="max-w-4xl mx-auto py-10 px-6">
+                <div className="bg-gray-50 border rounded-xl p-12 text-center">
+                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h2 className="text-2xl font-semibold text-gray-700 mb-2">No Bookings</h2>
+                    <p className="text-gray-500">Your bookings will appear here once you have a room assigned.</p>
+                </div>
+            </div>
+        )
     }
 
     return (
-        // larger, centered container — not full width; larger base font
-        <div className="flex flex-col md:flex-row gap-8 max-w-6xl mx-auto py-10 px-6 text-lg">
-            {/* Left: list */}
-            <aside className="w-full md:w-96 bg-white border rounded-xl p-5 flex flex-col max-h-[78vh] overflow-auto shadow-lg">
-                <div className="flex items-center justify-between mb-5">
-                    <div>
-                        <h2 className="text-2xl font-semibold">Past Bookings</h2>
-                        <p className="text-sm text-gray-500 mt-1">{bookings.length} bookings</p>
-                    </div>
-                    <button
-                        onClick={() => {
-                            setSelectedId(null)
-                            setSearch('')
-                            setFilterPaid('all')
-                        }}
-                        className="px-3 py-2 bg-gray-100 rounded-md text-sm hover:bg-gray-200"
-                    >
-                        Reset
-                    </button>
-                </div>
+        <div className="max-w-6xl mx-auto py-10 px-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-6">My Bookings</h1>
 
-                <div className="mb-4">
+            {/* Search */}
+            <div className="mb-6">
+                <div className="relative max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
+                        type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search by hostel, user or payment ref"
-                        className="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                        placeholder="Search by hostel or room..."
+                        className="w-full pl-10 pr-4 py-2 border rounded-lg"
                     />
                 </div>
+            </div>
 
-                <div className="mb-4 flex gap-3 text-base">
-                    <button
-                        onClick={() => setFilterPaid('all')}
-                        className={`px-3 py-2 rounded-lg font-medium ${filterpaid === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
-                    >
-                        All
-                    </button>
-                    <button
-                        onClick={() => setFilterPaid('paid')}
-                        className={`px-3 py-2 rounded-lg font-medium ${filterpaid === 'paid' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
-                    >
-                        Paid
-                    </button>
-                    <button
-                        onClick={() => setFilterPaid('unpaid')}
-                        className={`px-3 py-2 rounded-lg font-medium ${filterpaid === 'unpaid' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
-                    >
-                        Unpaid
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-auto space-y-3">
-                    {filtered.length === 0 && <div className="text-base text-gray-500">No bookings found.</div>}
-                    {filtered.map((b) => (
-                        <button
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Bookings List */}
+                <div className="lg:col-span-1 space-y-3">
+                    {filtered.map(b => (
+                        <div
                             key={b.id}
-                            onClick={() => selectBooking(b.id)}
-                            className={`w-full text-left p-4 rounded-lg transition-colors border ${
-                                selectedId === b.id ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50 border-transparent'
-                            }`}
+                            onClick={() => setSelected(b)}
+                            className={`p-4 border rounded-xl cursor-pointer transition ${selected?.id === b.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'
+                                }`}
                         >
-                            <div className="flex items-center justify-between">
-                                <div className="font-semibold text-base">{b.hostelName}</div>
-                                <div className={`text-sm font-semibold ${b.paid ? 'text-green-600' : 'text-red-600'}`}>{b.paid ? 'Paid' : 'Unpaid'}</div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                    <DoorOpen className="w-5 h-5 text-gray-500" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold">{b.hostel_name}</p>
+                                    <p className="text-sm text-gray-500">Room {b.room_code}</p>
+                                </div>
                             </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                                {b.from} → {b.to} · {b.nights} night{b.nights > 1 ? 's' : ''}
-                            </div>
-                            <div className="text-sm text-gray-400 mt-3">₹{b.amount} · {b.user}</div>
-                        </button>
+                        </div>
                     ))}
                 </div>
-            </aside>
 
-            {/* Right: details */}
-            <main className="flex-1 bg-white border rounded-xl p-8 overflow-auto max-h-[78vh] shadow-lg">
-                <div className="flex items-start justify-between mb-6">
-                    <div>
-                        <h3 className="text-2xl font-semibold">Booking details</h3>
-                        <p className="text-base text-gray-500 mt-1">View and manage selected booking.</p>
-                    </div>
+                {/* Selected Booking Details */}
+                <div className="lg:col-span-2">
+                    {selected ? (
+                        <div className="bg-white border rounded-xl p-6">
+                            <h2 className="text-2xl font-bold mb-4">{selected.hostel_name}</h2>
 
-                    <div className="text-base text-gray-500">{selectedId ? '' : 'Select a booking to see details'}</div>
-                </div>
-
-                {message && <div className="mb-4 text-base text-green-800 bg-green-100 p-3 rounded-lg">{message}</div>}
-
-                {!selectedId ? (
-                    <div className="text-base text-gray-600">Select a booking from the left to view details, payment and feedback options.</div>
-                ) : (
-                    (() => {
-                        const b = bookings.find((x) => x.id === selectedId)
-                        if (!b) return <div className="text-base text-gray-500">Booking not found.</div>
-                        return (
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <h4 className="text-xl font-semibold">{b.hostelName}</h4>
-                                        <p className="text-base text-gray-500">{b.user}</p>
-                                        <div className="mt-4 text-base space-y-2">
-                                            <div><strong>Dates:</strong> {b.from} → {b.to} ({b.nights} night{b.nights > 1 ? 's' : ''})</div>
-                                            <div><strong>Amount:</strong> ₹{b.amount} {b.currency}</div>
-                                            <div><strong>Status:</strong> <span className={b.paid ? 'text-green-600' : 'text-red-600'}>{b.paid ? 'Paid' : 'Unpaid'}</span></div>
-                                            <div><strong>Booking ID:</strong> <span className="text-sm text-gray-500">{b.id}</span></div>
-                                            <div><strong>Created:</strong> <span className="text-sm text-gray-500">{new Date(b.createdAt).toLocaleString()}</span></div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div className="bg-gray-50 p-4 rounded-lg border">
-                                            <div className="text-base font-medium">Payment details</div>
-                                            <div className="text-sm text-gray-600 mt-3 space-y-1">
-                                                <div><strong>Paid:</strong> {b.paid ? 'Yes' : 'No'}</div>
-                                                <div><strong>Ref:</strong> {b.paymentRef || '-'}</div>
-                                            </div>
-                                            {!b.paid && (
-                                                <div className="mt-4 flex gap-3">
-                                                    <button
-                                                        onClick={() => {
-                                                            const updated = bookings.map((it) => (it.id === b.id ? { ...it, paid: true, paymentRef: `PAY_${Date.now().toString(36)}` } : it))
-                                                            setBookings(updated)
-                                                            saveBookings(updated)
-                                                            setMessage('Payment simulated and marked as paid.')
-                                                            setTimeout(() => setMessage(''), 2500)
-                                                        }}
-                                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-base"
-                                                    >
-                                                        Pay now
-                                                    </button>
-                                                    <button onClick={() => cancelBooking(b.id)} className="px-4 py-2 border rounded-lg text-base">Cancel booking</button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="bg-gray-50 p-4 rounded-lg border">
-                                            <div className="text-base font-medium">Feedback</div>
-                                            <textarea
-                                                value={feedbackText}
-                                                onChange={(e) => setFeedbackText(e.target.value)}
-                                                rows={5}
-                                                className="mt-3 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                                placeholder="Write feedback about your stay..."
-                                            />
-                                            <div className="mt-3 flex items-center justify-end gap-3">
-                                                <button onClick={saveFeedback} className="px-4 py-2 bg-green-600 text-white rounded-lg text-base">Save feedback</button>
-                                                <button onClick={rebook} className="px-4 py-2 border rounded-lg text-base">Rebook</button>
-                                            </div>
-                                        </div>
-                                    </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-sm text-gray-500">Room</p>
+                                    <p className="font-semibold">Room {selected.room_code}</p>
                                 </div>
-
-                                {b.feedback && (
-                                    <div className="mt-4 bg-gray-50 p-4 rounded-lg border text-base">
-                                        <div className="font-medium mb-2">Previous feedback</div>
-                                        <div className="text-gray-600">{b.feedback}</div>
-                                    </div>
-                                )}
+                                <div>
+                                    <p className="text-sm text-gray-500">Floor</p>
+                                    <p className="font-semibold">{selected.room_floor}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Check-in</p>
+                                    <p className="font-semibold">{selected.check_in_date}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Check-out</p>
+                                    <p className="font-semibold">{selected.check_out_date || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Monthly Rent</p>
+                                    <p className="font-semibold">₹{parseFloat(selected.rent_amount || 0).toLocaleString()}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Booking Reference</p>
+                                    <p className="font-semibold">{selected.booking_reference}</p>
+                                </div>
                             </div>
-                        )
-                    })()
-                )}
-            </main>
+
+                            <div className="mt-6 pt-4 border-t">
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${selected.status === 'active'
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                    {selected.status === 'active' ? 'Active' : 'Completed'}
+                                </span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-gray-50 border rounded-xl p-12 text-center">
+                            <p className="text-gray-500">Select a booking to view details</p>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     )
 }
+
+export default PastBookings

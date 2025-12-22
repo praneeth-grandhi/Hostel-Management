@@ -1,251 +1,231 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { DoorOpen, Calendar, MapPin, Phone, Mail, AlertTriangle, CheckCircle } from 'lucide-react'
-
-const STORAGE_KEY = 'hostelManagement:myHostel'
-
-const sampleState = {
-  hostel: {
-    name: 'Green Valley Hostel',
-    address: '12 MG Road, Cityville',
-    contactEmail: 'green@hostel.example',
-    contactPhone: '+91 98765 43210',
-    totalRooms: 24,
-    floors: 3,
-    description: 'Cozy hostel close to Cityville Tech Park with WiFi, meals and laundry.',
-    amenities: ['WiFi', 'Laundry', 'Meals', 'Parking'],
-    updatedAt: new Date().toISOString(),
-  },
-  // Current room assignment for the user
-  currentRoom: {
-    roomCode: '102',
-    floor: 1,
-    sharingType: 'double',
-    rent: 9000,
-    checkInDate: '2025-01-15',
-    checkOutDate: null,
-    features: { ac: true, tv: false, waterHeater: true },
-  },
-  rooms: [
-    { id: 'r101', name: 'Room 101', type: 'Single', floor: 1, rent: 4500, occupied: true },
-    { id: 'r102', name: 'Room 102', type: 'Double', floor: 1, rent: 6500, occupied: false },
-    { id: 'r201', name: 'Room 201', type: 'Triple', floor: 2, rent: 7200, occupied: true },
-    { id: 'r202', name: 'Room 202', type: 'Single', floor: 2, rent: 4800, occupied: false },
-  ],
-  bookedRoomIds: ['r102'],
-  complaints: [
-    {
-      id: 'cmp-1',
-      subject: 'Water heater not working',
-      category: 'Maintenance',
-      description: 'Room 102 geyser is not heating properly since yesterday.',
-      status: 'open',
-      createdAt: new Date().toISOString(),
-    },
-  ],
-  // Past bookings history
-  pastBookings: [
-    {
-      id: 'pb-1',
-      hostelName: 'Sunrise PG',
-      roomCode: '205',
-      sharingType: 'triple',
-      checkIn: '2024-06-01',
-      checkOut: '2024-12-31',
-      rent: 7500,
-      status: 'completed',
-    },
-    {
-      id: 'pb-2',
-      hostelName: 'City Center Hostel',
-      roomCode: '101',
-      sharingType: 'single',
-      checkIn: '2024-01-01',
-      checkOut: '2024-05-31',
-      rent: 6000,
-      status: 'completed',
-    },
-  ],
-  primaryBooking: {
-    reference: 'GVH-2025-001',
-    rooms: 1,
-    people: 3,
-    since: '2025-01-15',
-    note: 'Primary stay in deluxe triple sharing room.',
-  },
-}
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
-function saveState(state) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch {}
-}
+import React, { useEffect, useState } from 'react'
+import { DoorOpen, Calendar, MapPin, Phone, Mail, CheckCircle, AlertCircle, MessageSquare } from 'lucide-react'
+import { FETCH_BOOKINGS, CREATE_COMPLAINT, FETCH_COMPLAINTS } from '../../Data/request.js'
 
 const MyHostel = () => {
-  const [hostel, setHostel] = useState(sampleState.hostel)
-  const [currentRoom, setCurrentRoom] = useState(sampleState.currentRoom)
-  const [pastBookings, setPastBookings] = useState(sampleState.pastBookings)
-  const [rooms, setRooms] = useState(sampleState.rooms)
-  const [bookedRoomIds, setBookedRoomIds] = useState(sampleState.bookedRoomIds)
-  const [complaints, setComplaints] = useState(sampleState.complaints)
+  // State for data from backend
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [activeBooking, setActiveBooking] = useState(null)
+  const [pastBookings, setPastBookings] = useState([])
+  const [complaints, setComplaints] = useState([])
+  const [submitting, setSubmitting] = useState(false)
+
+  // Complaint form state
   const [complaintForm, setComplaintForm] = useState({
-    subject: '',
+    title: '',
     category: 'Maintenance',
     description: '',
   })
-  const [primaryBooking, setPrimaryBooking] = useState(sampleState.primaryBooking)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('success') // 'success' or 'error'
 
+  // Fetch user's bookings and complaints from backend
   useEffect(() => {
-    const existing = loadState()
-    if (existing) {
-      setHostel(existing.hostel)
-      setCurrentRoom(existing.currentRoom || sampleState.currentRoom)
-      setPastBookings(existing.pastBookings || sampleState.pastBookings)
-      setRooms(existing.rooms)
-      setBookedRoomIds(existing.bookedRoomIds || [])
-      setComplaints(existing.complaints || [])
-      setPrimaryBooking(existing.primaryBooking || sampleState.primaryBooking)
-    } else {
-      saveState(sampleState)
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        // Fetch bookings
+        const bookings = await FETCH_BOOKINGS()
+
+        // Find active booking (current stay)
+        const active = bookings.find(b => b.status === 'active')
+        setActiveBooking(active || null)
+
+        // Past bookings (completed)
+        const past = bookings.filter(b => b.status === 'completed')
+        setPastBookings(past)
+
+        // Fetch user's complaints
+        try {
+          const complaintsData = await FETCH_COMPLAINTS()
+          setComplaints(complaintsData)
+        } catch (err) {
+          console.error('Failed to fetch complaints:', err)
+        }
+
+      } catch (err) {
+        console.error('Failed to fetch bookings:', err)
+        setError('Failed to load your booking information.')
+      } finally {
+        setLoading(false)
+      }
     }
+
+    fetchData()
   }, [])
 
-  const persist = (next = {}) => {
-    const payload = {
-      hostel: next.hostel ?? hostel,
-      currentRoom: next.currentRoom ?? currentRoom,
-      pastBookings: next.pastBookings ?? pastBookings,
-      rooms: next.rooms ?? rooms,
-      bookedRoomIds: next.bookedRoomIds ?? bookedRoomIds,
-      complaints: next.complaints ?? complaints,
-      primaryBooking: next.primaryBooking ?? primaryBooking,
-    }
-    saveState(payload)
-  }
-
-  const setFlash = (text) => {
+  const setFlash = (text, type = 'success') => {
     setMessage(text)
-    setTimeout(() => setMessage(''), 2500)
+    setMessageType(type)
+    setTimeout(() => setMessage(''), 4000)
   }
-
-  const cancelBooking = (id) => {
-    if (!bookedRoomIds.includes(id)) return
-    const updated = bookedRoomIds.filter((roomId) => roomId !== id)
-    setBookedRoomIds(updated)
-    persist({ bookedRoomIds: updated })
-    const room = rooms.find((r) => r.id === id)
-    setFlash(`${room?.name || 'Room'} booking cancelled.`)
-  }
-
-  const availableRooms = useMemo(
-    () => rooms.filter((r) => !r.occupied && !bookedRoomIds.includes(r.id)),
-    [rooms, bookedRoomIds]
-  )
-
-  const bookedRooms = rooms.filter((r) => bookedRoomIds.includes(r.id))
 
   const handleComplaintChange = (field, value) => {
     setComplaintForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const submitComplaint = (event) => {
+  const submitComplaint = async (event) => {
     event.preventDefault()
-    if (!complaintForm.subject.trim() || !complaintForm.description.trim()) {
-      return setFlash('Please fill in subject and description.')
+    if (!complaintForm.title.trim() || !complaintForm.description.trim()) {
+      return setFlash('Please fill in title and description.', 'error')
     }
 
-    const newComplaint = {
-      ...complaintForm,
-      id: `cmp-${Date.now()}`,
-      status: 'open',
-      createdAt: new Date().toISOString(),
-    }
+    setSubmitting(true)
+    try {
+      const newComplaint = await CREATE_COMPLAINT({
+        category: complaintForm.category.toLowerCase(),
+        title: complaintForm.title,
+        description: complaintForm.description,
+      })
 
-    const nextComplaints = [newComplaint, ...complaints]
-    setComplaints(nextComplaints)
-    persist({ complaints: nextComplaints })
-    setComplaintForm({ subject: '', category: complaintForm.category, description: '' })
-    setFlash('Complaint submitted. We will get back to you soon.')
+      // Add to local list
+      setComplaints([newComplaint, ...complaints])
+      setComplaintForm({ title: '', category: 'Maintenance', description: '' })
+      setFlash('Complaint submitted successfully!')
+    } catch (err) {
+      console.error('Failed to submit complaint:', err)
+      const errorMsg = err.response?.data?.detail || 'Failed to submit complaint. Please try again.'
+      setFlash(errorMsg, 'error')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto py-10 px-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your hostel information...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto py-10 px-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+          <p className="text-red-700">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // No active booking
+  if (!activeBooking) {
+    return (
+      <div className="max-w-6xl mx-auto py-10 px-6">
+        <div className="bg-gray-50 border rounded-xl p-12 text-center">
+          <DoorOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold text-gray-700 mb-2">No Active Booking</h2>
+          <p className="text-gray-500">You don't have any active hostel booking at the moment.</p>
+          <p className="text-gray-500 mt-2">Contact an admin to get a room assigned.</p>
+        </div>
+
+        {/* Show past bookings if any */}
+        {pastBookings.length > 0 && (
+          <div className="mt-8 bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="p-5 border-b bg-gray-50">
+              <h2 className="text-xl font-semibold">Past Stays</h2>
+            </div>
+            <div className="divide-y">
+              {pastBookings.map((booking) => (
+                <div key={booking.id} className="p-5 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <DoorOpen className="w-6 h-6 text-gray-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{booking.hostel_name}</h3>
+                    <p className="text-sm text-gray-500">
+                      Room {booking.room_code} • {booking.check_in_date} → {booking.check_out_date}
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                    Completed
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Has active booking - show full dashboard
   return (
-    <div className="max-w-6xl mx-auto py-10 px-6 text-lg space-y-6">
+    <div className="max-w-6xl mx-auto py-10 px-6 space-y-6">
       <header className="flex flex-col gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">{hostel.name}</h1>
+          <h1 className="text-4xl font-bold text-gray-900">{activeBooking.hostel_name}</h1>
           <p className="text-base text-gray-600 mt-1">
-            View your hostel details, track bookings, and raise complaints whenever you spot an issue.
+            Your current hostel stay and booking details
           </p>
         </div>
-        {message && <div className="text-base text-green-800 bg-green-100 px-4 py-2 rounded-lg">{message}</div>}
+        {message && (
+          <div className={`text-base px-4 py-2 rounded-lg ${messageType === 'error'
+            ? 'text-red-800 bg-red-100'
+            : 'text-green-800 bg-green-100'
+            }`}>
+            {message}
+          </div>
+        )}
       </header>
 
       {/* Current Room Section - Prominent Display */}
-      {currentRoom && (
-        <section className="bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <DoorOpen className="w-6 h-6" />
-                <span className="text-blue-100 text-sm font-medium">Your Current Room</span>
-              </div>
-              <h2 className="text-4xl font-bold mb-1">Room {currentRoom.roomCode}</h2>
-              <p className="text-blue-100 capitalize">{currentRoom.sharingType} Sharing • Floor {currentRoom.floor}</p>
+      <section className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <DoorOpen className="w-6 h-6" />
+              <span className="text-blue-100 text-sm font-medium">Your Current Room</span>
             </div>
-            <div className="text-right">
-              <p className="text-blue-100 text-sm">Monthly Rent</p>
-              <p className="text-3xl font-bold">₹{currentRoom.rent?.toLocaleString()}</p>
-            </div>
+            <h2 className="text-4xl font-bold mb-1">Room {activeBooking.room_code}</h2>
+            <p className="text-blue-100">Floor {activeBooking.room_floor}</p>
           </div>
+          <div className="text-right">
+            <p className="text-blue-100 text-sm">Monthly Rent</p>
+            <p className="text-3xl font-bold">₹{parseFloat(activeBooking.rent_amount || 0).toLocaleString()}</p>
+          </div>
+        </div>
 
-          <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-blue-100 text-sm">Check-in Date</p>
-              <p className="font-semibold flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                {currentRoom.checkInDate}
-              </p>
-            </div>
-            <div>
-              <p className="text-blue-100 text-sm">Check-out Date</p>
-              <p className="font-semibold">{currentRoom.checkOutDate || 'Ongoing'}</p>
-            </div>
-            <div>
-              <p className="text-blue-100 text-sm">Room Features</p>
-              <p className="font-semibold text-sm">
-                {[
-                  currentRoom.features?.ac && 'AC',
-                  currentRoom.features?.tv && 'TV',
-                  currentRoom.features?.waterHeater && 'Geyser'
-                ].filter(Boolean).join(', ') || 'None'}
-              </p>
-            </div>
-            <div>
-              <p className="text-blue-100 text-sm">Status</p>
-              <p className="font-semibold flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-300" />
-                Active
-              </p>
-            </div>
+        <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-blue-100 text-sm">Check-in Date</p>
+            <p className="font-semibold flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              {activeBooking.check_in_date}
+            </p>
           </div>
-        </section>
-      )}
+          <div>
+            <p className="text-blue-100 text-sm">Check-out Date</p>
+            <p className="font-semibold">{activeBooking.check_out_date || 'Ongoing'}</p>
+          </div>
+          <div>
+            <p className="text-blue-100 text-sm">Booking Reference</p>
+            <p className="font-semibold">{activeBooking.booking_reference}</p>
+          </div>
+          <div>
+            <p className="text-blue-100 text-sm">Status</p>
+            <p className="font-semibold flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-300" />
+              Active
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* Past Bookings Section */}
-      {pastBookings && pastBookings.length > 0 && (
+      {pastBookings.length > 0 && (
         <section className="bg-white rounded-2xl border shadow-sm overflow-hidden">
           <div className="p-5 border-b bg-gray-50">
-            <h2 className="text-xl font-semibold text-gray-900">Past Bookings</h2>
-            <p className="text-sm text-gray-500 mt-1">Your previous stays</p>
+            <h2 className="text-xl font-semibold text-gray-900">Past Stays</h2>
+            <p className="text-sm text-gray-500 mt-1">Your previous bookings</p>
           </div>
           <div className="divide-y">
             {pastBookings.map((booking) => (
@@ -254,17 +234,17 @@ const MyHostel = () => {
                   <DoorOpen className="w-6 h-6 text-gray-500" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">{booking.hostelName}</h3>
+                  <h3 className="font-semibold text-gray-900">{booking.hostel_name}</h3>
                   <p className="text-sm text-gray-500">
-                    Room {booking.roomCode} • {booking.sharingType} sharing
+                    Room {booking.room_code} • Floor {booking.room_floor}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">{booking.checkIn} → {booking.checkOut}</p>
-                  <p className="font-semibold text-gray-900">₹{booking.rent?.toLocaleString()}/month</p>
+                  <p className="text-sm text-gray-500">{booking.check_in_date} → {booking.check_out_date}</p>
+                  <p className="font-semibold text-gray-900">₹{parseFloat(booking.rent_amount || 0).toLocaleString()}/month</p>
                 </div>
-                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium capitalize">
-                  {booking.status}
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                  Completed
                 </span>
               </div>
             ))}
@@ -272,184 +252,99 @@ const MyHostel = () => {
         </section>
       )}
 
-      <section className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-2xl border shadow-sm">
-            <p className="text-sm text-gray-500">Total rooms</p>
-            <p className="text-3xl font-semibold mt-2">{rooms.length}</p>
-          </div>
-          <div className="bg-white p-5 rounded-2xl border shadow-sm">
-            <p className="text-sm text-gray-500">Available rooms</p>
-            <p className="text-3xl font-semibold mt-2">{availableRooms.length}</p>
-          </div>
-          <div className="bg-white p-5 rounded-2xl border shadow-sm">
-            <p className="text-sm text-gray-500">Rooms booked by you</p>
-            <p className="text-3xl font-semibold mt-2">{bookedRooms.length}</p>
-          </div>
+      {/* Complaint Section */}
+      <section className="bg-white p-6 rounded-2xl border shadow-sm space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold flex items-center gap-2">
+            <MessageSquare className="w-6 h-6" />
+            Raise a Complaint
+          </h2>
+          <p className="text-base text-gray-500">Let us know what's wrong so we can resolve it quickly.</p>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Hostel information</h2>
-            <dl className="space-y-3 text-base text-gray-700">
-              <div>
-                <dt className="font-medium text-gray-500">Address</dt>
-                <dd className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" />{hostel.address}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500">Contact email</dt>
-                <dd className="flex items-center gap-2"><Mail className="w-4 h-4 text-gray-400" />{hostel.contactEmail}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500">Contact phone</dt>
-                <dd className="flex items-center gap-2"><Phone className="w-4 h-4 text-gray-400" />{hostel.contactPhone}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500">Floors</dt>
-                <dd>{hostel.floors}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500">Amenities</dt>
-                <dd className="flex flex-wrap gap-2">
-                  {hostel.amenities.map((amenity) => (
-                    <span key={amenity} className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm">
-                      {amenity}
-                    </span>
-                  ))}
-                </dd>
-              </div>
-            </dl>
-            <p className="text-sm text-gray-400 mt-4">Last updated: {new Date(hostel.updatedAt).toLocaleString()}</p>
+        <form onSubmit={submitComplaint} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-600 mb-1">Title</label>
+            <input
+              type="text"
+              value={complaintForm.title}
+              onChange={(e) => handleComplaintChange('title', e.target.value)}
+              className="border rounded-xl px-3 py-2"
+              placeholder="Short title for your complaint"
+            />
           </div>
-
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Your bookings</h2>
-            <p className="text-sm text-gray-500 mb-3">
-              Includes your current hostel stay plus any extra rooms you have reserved.
-            </p>
-            <div className="border rounded-2xl p-4 mb-4 bg-blue-50/80">
-              <p className="text-xs uppercase tracking-wide font-semibold text-blue-700">Current hostel booking</p>
-              <p className="text-lg font-semibold text-gray-900 mt-1">Reference {primaryBooking.reference}</p>
-              <p className="text-sm text-gray-600">
-                {primaryBooking.people} {primaryBooking.people === 1 ? 'person' : 'people'} · {primaryBooking.rooms}{' '}
-                {primaryBooking.rooms === 1 ? 'room' : 'rooms'} · Since {new Date(primaryBooking.since).toLocaleDateString()}
-              </p>
-              {primaryBooking.note && <p className="text-sm text-gray-500 mt-1">{primaryBooking.note}</p>}
-            </div>
-            {bookedRooms.length === 0 ? (
-              <p className="text-base text-gray-500">You have not booked any additional rooms yet.</p>
-            ) : (
-              <div className="space-y-3 max-h-[50vh] overflow-auto">
-                {bookedRooms.map((room) => (
-                  <div key={room.id} className="border rounded-2xl p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-xl font-semibold">{room.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {room.type} · Floor {room.floor} · ₹{room.rent}/month
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => cancelBooking(room.id)}
-                      className="px-4 py-2 border rounded-xl text-sm font-medium"
-                    >
-                      Cancel booking
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <p className="text-sm text-gray-500 mt-4">Need another room? Speak with the hostel manager directly.</p>
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-600 mb-1">Category</label>
+            <select
+              value={complaintForm.category}
+              onChange={(e) => handleComplaintChange('category', e.target.value)}
+              className="border rounded-xl px-3 py-2"
+            >
+              {['Maintenance', 'Cleanliness', 'Security', 'Food', 'Staff', 'Other'].map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border shadow-sm">
-          <h2 className="text-2xl font-semibold mb-2">Description</h2>
-          <p className="text-base text-gray-700 leading-relaxed">{hostel.description}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-6">
-          <div>
-            <h2 className="text-2xl font-semibold">Raise a complaint</h2>
-            <p className="text-base text-gray-500">Let us know what's wrong so we can resolve it quickly.</p>
+          <div className="md:col-span-2 flex flex-col">
+            <label className="text-sm text-gray-600 mb-1">Description</label>
+            <textarea
+              value={complaintForm.description}
+              onChange={(e) => handleComplaintChange('description', e.target.value)}
+              className="border rounded-xl px-3 py-2 min-h-[120px]"
+              placeholder="Describe the issue in detail"
+            />
           </div>
-
-          <form onSubmit={submitComplaint} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col">
-              <label className="text-sm text-gray-600 mb-1">Subject</label>
-              <input
-                type="text"
-                value={complaintForm.subject}
-                onChange={(e) => handleComplaintChange('subject', e.target.value)}
-                className="border rounded-xl px-3 py-2"
-                placeholder="Short title"
-              />
-            </div>
-            <div className="flex flex-col">
-              <label className="text-sm text-gray-600 mb-1">Category</label>
-              <select
-                value={complaintForm.category}
-                onChange={(e) => handleComplaintChange('category', e.target.value)}
-                className="border rounded-xl px-3 py-2"
-              >
-                {['Maintenance', 'Security', 'Services', 'Other'].map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-2 flex flex-col">
-              <label className="text-sm text-gray-600 mb-1">Description</label>
-              <textarea
-                value={complaintForm.description}
-                onChange={(e) => handleComplaintChange('description', e.target.value)}
-                className="border rounded-xl px-3 py-2 min-h-[120px]"
-                placeholder="Describe the issue in detail"
-              />
-            </div>
-            <div className="md:col-span-2 flex justify-end">
-              <button type="submit" className="px-5 py-2 rounded-xl text-base font-medium bg-blue-600 text-white">
-                Submit complaint
-              </button>
-            </div>
-          </form>
-
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold">Recent complaints</h3>
-            {complaints.length === 0 ? (
-              <p className="text-base text-gray-500">No complaints raised yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {complaints.map((complaint) => (
-                  <div key={complaint.id} className="border rounded-2xl p-4 flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div>
-                        <p className="text-lg font-semibold">{complaint.subject}</p>
-                        <p className="text-sm text-gray-500">{complaint.category}</p>
-                      </div>
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          complaint.status === 'open'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-green-100 text-green-700'
-                        }`}
-                      >
-                        {complaint.status === 'open' ? 'Pending review' : 'Resolved by admin'}
-                      </span>
-                    </div>
-                    <p className="text-base text-gray-700">{complaint.description}</p>
-                    <p className="text-xs text-gray-400">
-                      Raised on {new Date(complaint.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="md:col-span-2 flex justify-end">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-5 py-2 rounded-xl text-base font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {submitting && (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              )}
+              {submitting ? 'Submitting...' : 'Submit Complaint'}
+            </button>
           </div>
-        </div>
+        </form>
       </section>
+
+      {/* Your Complaints Section */}
+      {complaints.length > 0 && (
+        <section className="bg-white p-6 rounded-2xl border shadow-sm">
+          <h2 className="text-2xl font-semibold mb-4">Your Complaints</h2>
+          <div className="space-y-4">
+            {complaints.map((c) => (
+              <div key={c.id} className="border rounded-xl p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{c.title}</h3>
+                    <p className="text-sm text-gray-500 capitalize">{c.category}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${c.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                    }`}>
+                    {c.status === 'pending' ? 'Pending' : 'Resolved'}
+                  </span>
+                </div>
+                <p className="text-gray-700 text-sm">{c.description}</p>
+                {c.admin_response && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm font-medium text-blue-700">Admin Response:</p>
+                    <p className="text-sm text-blue-800">{c.admin_response}</p>
+                  </div>
+                )}
+                <p className="text-xs text-gray-400 mt-2">
+                  Submitted: {new Date(c.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
 
-export default MyHostel;
+export default MyHostel

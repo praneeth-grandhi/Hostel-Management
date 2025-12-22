@@ -61,10 +61,10 @@ export const FETCH_USER_PROFILE = async () => {
 
 export const UPDATE_USER_PROFILE = async (profileData) => {
     const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
-    
+
     // Check if it's FormData (for file uploads) or regular object
     const isFormData = profileData instanceof FormData
-    
+
     const response = await axios.put(`${API_BASE_URL}me/profile/`, profileData, {
         headers: {
             Authorization: `Bearer ${auth?.access}`,
@@ -132,7 +132,7 @@ export const DELETE_HOSTEL = async (hostelId) => {
 export const CREATE_ADMIN_WITH_HOSTEL = async (adminHostelData) => {
     // Create FormData to handle file uploads
     const formData = new FormData();
-    
+
     // Add user fields
     formData.append('first_name', adminHostelData.first_name);
     formData.append('last_name', adminHostelData.last_name);
@@ -146,7 +146,7 @@ export const CREATE_ADMIN_WITH_HOSTEL = async (adminHostelData) => {
     formData.append('zip_code', adminHostelData.zip_code);
     formData.append('password', adminHostelData.password);
     formData.append('confirm_password', adminHostelData.confirm_password);
-    
+
     // Add hostel fields
     formData.append('name', adminHostelData.hostel_name);
     formData.append('hostel_address', adminHostelData.hostel_address);
@@ -158,7 +158,7 @@ export const CREATE_ADMIN_WITH_HOSTEL = async (adminHostelData) => {
     formData.append('rooms', adminHostelData.rooms);
     formData.append('floors', adminHostelData.floors);
     formData.append('business_hours', adminHostelData.business_hours || '');
-    
+
     // Add verification/document fields
     formData.append('hostel_type', adminHostelData.hostel_type || '');
     formData.append('food_provided', adminHostelData.food_provided || false);
@@ -166,7 +166,7 @@ export const CREATE_ADMIN_WITH_HOSTEL = async (adminHostelData) => {
     formData.append('police_verification_reference', adminHostelData.police_verification_reference || '');
     formData.append('gst_number', adminHostelData.gst_number || '');
     formData.append('fssai_license', adminHostelData.fssai_license || '');
-    
+
     // Add file uploads if they exist
     if (adminHostelData.owner_id_proof) {
         formData.append('owner_id_proof', adminHostelData.owner_id_proof);
@@ -177,7 +177,7 @@ export const CREATE_ADMIN_WITH_HOSTEL = async (adminHostelData) => {
     if (adminHostelData.trade_license) {
         formData.append('trade_license', adminHostelData.trade_license);
     }
-    
+
     const response = await axios.post(`${API_BASE_URL}admin-register/`, formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
@@ -224,8 +224,8 @@ export const UPDATE_CO_ADMIN = async (id, data) => {
 // Fetch all rooms for a specific hostel
 export const FETCH_ROOMS = async (hostelId) => {
     const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
-    const url = hostelId 
-        ? `${API_BASE_URL}rooms/?hostel_id=${hostelId}` 
+    const url = hostelId
+        ? `${API_BASE_URL}rooms/?hostel_id=${hostelId}`
         : `${API_BASE_URL}rooms/`;
     const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${auth?.access}` }
@@ -264,6 +264,112 @@ export const DELETE_ROOM = async (roomId) => {
 export const FETCH_ROOM_BY_ID = async (roomId) => {
     const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
     const response = await axios.get(`${API_BASE_URL}rooms/${roomId}/`, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Bookings
+export const CREATE_BOOKING = async (bookingData) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.post(`${API_BASE_URL}bookings/`, bookingData, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Fetch bookings for current user (admins get all), optionally filter by hostel
+export const FETCH_BOOKINGS = async (hostelId = null) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const url = hostelId
+        ? `${API_BASE_URL}bookings/?hostel_id=${hostelId}`
+        : `${API_BASE_URL}bookings/`;
+    const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Update a booking (partial or full)
+export const UPDATE_BOOKING = async (bookingId, bookingData) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.put(`${API_BASE_URL}bookings/${bookingId}/`, bookingData, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Checkout a booking (mark completed)
+export const CHECKOUT_BOOKING = async (bookingId) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.post(`${API_BASE_URL}bookings/${bookingId}/checkout/`, {}, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Delete a booking
+export const DELETE_BOOKING = async (bookingId) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.delete(`${API_BASE_URL}bookings/${bookingId}/`, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// ============ USER SEARCH & OTP APIs (Admin Booking Flow) ============
+
+// Search users by phone or email
+export const SEARCH_USERS = async (query) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.get(`${API_BASE_URL}search/?query=${encodeURIComponent(query)}`, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Send OTP to user (demo mode - always succeeds)
+export const SEND_OTP = async (data) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.post(`${API_BASE_URL}otp/send/`, data, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// Verify OTP (demo mode - accepts any value)
+export const VERIFY_OTP = async (data) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.post(`${API_BASE_URL}otp/verify/`, data, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+
+// ============ COMPLAINTS APIs ============
+// Fetch complaints (users get their own, admins get all)
+export const FETCH_COMPLAINTS = async (hostelId = null) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const url = hostelId 
+        ? `${API_BASE_URL}complaints/?hostel_id=${hostelId}`
+        : `${API_BASE_URL}complaints/`;
+    const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+// Submit a complaint (user)
+export const CREATE_COMPLAINT = async (data) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.post(`${API_BASE_URL}complaints/`, data, {
+        headers: { Authorization: `Bearer ${auth?.access}` }
+    });
+    return response.data;
+}
+// Update complaint (admin - change status, add response)
+export const UPDATE_COMPLAINT = async (id, data) => {
+    const auth = JSON.parse(localStorage.getItem('hostelManagement:auth'))
+    const response = await axios.patch(`${API_BASE_URL}complaints/${id}/`, data, {
         headers: { Authorization: `Bearer ${auth?.access}` }
     });
     return response.data;

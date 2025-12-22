@@ -1,15 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, MessageSquare, Reply } from 'lucide-react'
 import HostelSidebar from '../../components/HostelSidebar'
-
-const SAMPLE = [
-  { id: 'C-001', user: 'John Doe', text: 'Leaky faucet in room 101', date: '2024-06-15', status: 'pending' },
-  { id: 'C-002', user: 'Asha Patel', text: 'AC not cooling in room 204', date: '2024-06-14', status: 'pending' },
-  { id: 'C-003', user: 'Ravi Kumar', text: 'Water supply issue on 3rd floor', date: '2024-06-12', status: 'pending' },
-]
+import { FETCH_COMPLAINTS, UPDATE_COMPLAINT } from '../../Data/request'
 
 const STATUS_CLASSES = {
-  pending: 'bg-amber-100 text-amber-800',
+  pending: 'bg-yellow-100 text-yellow-800',
   resolved: 'bg-green-100 text-green-800',
 }
 
@@ -18,49 +13,98 @@ const PAGE_SIZE = 8
 const Complaints = () => {
   const [selectedHostelId, setSelectedHostelId] = useState(null)
   const [complaints, setComplaints] = useState([])
+  const [loading, setLoading] = useState(false)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [status, setStatus] = useState('')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
 
-  useEffect(() => {
-    // Load complaints for selected hostel (currently using localStorage)
-    try {
-      const raw = JSON.parse(localStorage.getItem('hostelManagement:complaints') || 'null')
-      setComplaints(Array.isArray(raw) && raw.length ? raw : SAMPLE)
-    } catch {
-      setComplaints(SAMPLE)
-    }
-  }, [selectedHostelId])
+  // Response modal state
+  const [respondingTo, setRespondingTo] = useState(null)
+  const [responseText, setResponseText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  // Save to localStorage whenever complaints change
-  useEffect(() => {
+  // Fetch complaints from backend
+  const fetchComplaints = async () => {
+    if (!selectedHostelId) {
+      setComplaints([])
+      return
+    }
+    setLoading(true)
     try {
-      localStorage.setItem('hostelManagement:complaints', JSON.stringify(complaints))
-    } catch {}
-  }, [complaints])
+      const data = await FETCH_COMPLAINTS(selectedHostelId)
+      setComplaints(data)
+    } catch (err) {
+      console.error('Failed to fetch complaints:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchComplaints()
+  }, [selectedHostelId])
 
   const filtered = useMemo(() => {
     return complaints.filter((c) => {
       if (status && c.status !== status) return false
-      if (query && !(`${c.user} ${c.text}`.toLowerCase().includes(query.toLowerCase()))) return false
-      if (from && new Date(c.date) < new Date(from)) return false
-      if (to && new Date(c.date) > new Date(to)) return false
+      if (query && !(`${c.user_name || ''} ${c.title} ${c.description}`.toLowerCase().includes(query.toLowerCase()))) return false
+      if (from && new Date(c.created_at) < new Date(from)) return false
+      if (to && new Date(c.created_at) > new Date(to)) return false
       return true
     })
   }, [complaints, status, query, from, to])
 
   const total = filtered.length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
   useEffect(() => {
     if (page > totalPages) setPage(totalPages)
-  }, [totalPages]) // eslint-disable-line
+  }, [totalPages])
 
   const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const clearFilters = () => {
     setFrom(''); setTo(''); setStatus(''); setQuery(''); setPage(1)
+  }
+
+  // Handle status update
+  const handleStatusChange = async (complaintId, newStatus) => {
+    try {
+      await UPDATE_COMPLAINT(complaintId, { status: newStatus })
+      setComplaints(prev => prev.map(c =>
+        c.id === complaintId ? { ...c, status: newStatus } : c
+      ))
+    } catch (err) {
+      console.error('Failed to update status:', err)
+      alert('Failed to update complaint status')
+    }
+  }
+
+  // Handle response submission
+  const handleSubmitResponse = async () => {
+    if (!respondingTo || !responseText.trim()) return
+
+    setSubmitting(true)
+    try {
+      await UPDATE_COMPLAINT(respondingTo.id, {
+        admin_response: responseText,
+        status: 'resolved'
+      })
+      setComplaints(prev => prev.map(c =>
+        c.id === respondingTo.id
+          ? { ...c, admin_response: responseText, status: 'resolved' }
+          : c
+      ))
+      setRespondingTo(null)
+      setResponseText('')
+    } catch (err) {
+      console.error('Failed to submit response:', err)
+      alert('Failed to submit response')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -96,7 +140,7 @@ const Complaints = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                const csv = ['id,user,complaint,date,status', ...filtered.map(c => `${c.id},"${c.user}","${c.text}",${c.date},${c.status}`)].join('\n')
+                const csv = ['id,user,title,description,category,status,date', ...filtered.map(c => `${c.id},"${c.user_name}","${c.title}","${c.description}",${c.category},${c.status},${c.created_at?.slice(0, 10)}`)].join('\n')
                 const blob = new Blob([csv], { type: 'text/csv' })
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a'); a.href = url; a.download = 'complaints.csv'; a.click(); URL.revokeObjectURL(url)
@@ -105,100 +149,165 @@ const Complaints = () => {
             >
               Export CSV
             </button>
-            <button
-              onClick={() => {
-                if (!confirm('Mark all pending complaints as Resolved?')) return
-                setComplaints(prev => prev.map(c => filtered.includes(c) && c.status === 'pending' ? { ...c, status: 'resolved' } : c))
-              }}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Resolve All
-            </button>
           </div>
         </div>
+
+        {/* Loading state */}
+        {loading && (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+
+        {/* No hostel selected */}
+        {!selectedHostelId && !loading && (
+          <div className="bg-white border rounded-lg p-12 text-center">
+            <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500">Select a hostel to view complaints</p>
+          </div>
+        )}
 
         {/* Complaints Table */}
-        <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
-            <div className="text-sm text-gray-600">Showing {visible.length} of {total} complaints</div>
-          </div>
+        {selectedHostelId && !loading && (
+          <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
+            <div className="p-4 border-b flex items-center justify-between">
+              <div className="text-sm text-gray-600">Showing {visible.length} of {total} complaints</div>
+            </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-600">
-                <tr>
-                  <th className="p-3">ID</th>
-                  <th className="p-3">User</th>
-                  <th className="p-3">Complaint</th>
-                  <th className="p-3">Date</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-left text-gray-600">
                   <tr>
-                    <td colSpan={6} className="p-12 text-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
+                    <th className="p-3">User</th>
+                    <th className="p-3">Subject</th>
+                    <th className="p-3">Category</th>
+                    <th className="p-3">Room</th>
+                    <th className="p-3">Date</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-12 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                            <MessageSquare className="w-6 h-6 text-gray-400" />
+                          </div>
+                          <p className="text-gray-500">No complaints found</p>
                         </div>
-                        <p className="text-gray-500">No complaints found</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : visible.map((c) => (
-                  <tr key={c.id} className="border-t hover:bg-gray-50">
-                    <td className="p-3 font-medium">{c.id}</td>
-                    <td className="p-3">{c.user}</td>
-                    <td className="p-3 max-w-xl">{c.text}</td>
-                    <td className="p-3">{c.date}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_CLASSES[c.status] || 'bg-gray-100 text-gray-800'}`}>
-                        {c.status === 'pending' ? 'Pending' : 'Resolved'}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        {c.status === 'pending' && (
-                          <button
-                            onClick={() => setComplaints(prev => prev.map(x => x.id === c.id ? { ...x, status: 'resolved' } : x))}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                            title="Mark as resolved"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            if (!confirm('Delete this complaint?')) return
-                            setComplaints(prev => prev.filter(x => x.id !== c.id))
-                          }}
-                          className="px-2 py-1 border rounded text-sm text-red-600 hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                    </tr>
+                  ) : visible.map((c) => (
+                    <tr key={c.id} className="border-t hover:bg-gray-50">
+                      <td className="p-3">
+                        <div>
+                          <p className="font-medium">{c.user_name}</p>
+                          <p className="text-xs text-gray-500">{c.user_email}</p>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <p className="font-medium">{c.title}</p>
+                        <p className="text-xs text-gray-500 truncate max-w-xs">{c.description}</p>
+                      </td>
+                      <td className="p-3 capitalize">{c.category}</td>
+                      <td className="p-3">{c.room_code || '-'}</td>
+                      <td className="p-3">{c.created_at?.slice(0, 10)}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_CLASSES[c.status] || 'bg-gray-100 text-gray-800'}`}>
+                          {c.status === 'pending' ? 'Pending' : 'Resolved'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          {c.status !== 'resolved' && (
+                            <button
+                              onClick={() => {
+                                setRespondingTo(c)
+                                setResponseText(c.admin_response || '')
+                              }}
+                              className="px-2 py-1 border rounded text-sm text-green-600 hover:bg-green-50 flex items-center gap-1"
+                              title="Respond & Resolve"
+                            >
+                              <Reply className="w-4 h-4" />
+                              Resolve
+                            </button>
+                          )}
+                          {c.status === 'resolved' && c.admin_response && (
+                            <button
+                              onClick={() => alert(`Admin Response:\n\n${c.admin_response}`)}
+                              className="px-2 py-1 border rounded text-sm hover:bg-gray-50"
+                            >
+                              View Response
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Pagination */}
-          <div className="p-4 flex items-center justify-between bg-gray-50 border-t">
-            <div className="text-sm text-gray-600">Page {page} of {totalPages}</div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPage(1)} disabled={page === 1} className="px-2 py-1 border rounded disabled:opacity-50 hover:bg-white">First</button>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 border rounded disabled:opacity-50 hover:bg-white">Prev</button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 border rounded disabled:opacity-50 hover:bg-white">Next</button>
-              <button onClick={() => setPage(totalPages)} disabled={page === totalPages} className="px-2 py-1 border rounded disabled:opacity-50 hover:bg-white">Last</button>
+            {/* Pagination */}
+            <div className="p-4 flex items-center justify-between bg-gray-50 border-t">
+              <div className="text-sm text-gray-600">Page {page} of {totalPages}</div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPage(1)} disabled={page === 1} className="px-2 py-1 border rounded disabled:opacity-50 hover:bg-white">First</button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 border rounded disabled:opacity-50 hover:bg-white">Prev</button>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-2 py-1 border rounded disabled:opacity-50 hover:bg-white">Next</button>
+                <button onClick={() => setPage(totalPages)} disabled={page === totalPages} className="px-2 py-1 border rounded disabled:opacity-50 hover:bg-white">Last</button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Response Modal */}
+        {respondingTo && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-lg mx-4">
+              <h3 className="text-xl font-semibold mb-4">Respond to Complaint</h3>
+
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <p className="font-medium">{respondingTo.title}</p>
+                <p className="text-sm text-gray-600 mt-1">{respondingTo.description}</p>
+                <p className="text-xs text-gray-400 mt-2">From: {respondingTo.user_name}</p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Your Response</label>
+                <textarea
+                  value={responseText}
+                  onChange={(e) => setResponseText(e.target.value)}
+                  rows={4}
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="Write your response to the user..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setRespondingTo(null)
+                    setResponseText('')
+                  }}
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitResponse}
+                  disabled={submitting || !responseText.trim()}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {submitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                  {submitting ? 'Sending...' : 'Send & Resolve'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </HostelSidebar>
   )

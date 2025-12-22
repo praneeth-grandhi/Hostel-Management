@@ -237,3 +237,110 @@ class ChangePasswordView(APIView):
         user.save()
 
         return Response({'message': 'Password changed successfully'})
+
+
+class UserSearchView(APIView):
+    """Search for users by phone number or email - Admin/CoAdmin only."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        # Only admins and coadmins can search users
+        if not getattr(user, 'role', None) in ['admin', 'coadmin']:
+            return Response({'error': 'Permission denied'}, status=403)
+
+        query = request.query_params.get('query', '').strip()
+        if not query:
+            return Response({'error': 'Search query is required'}, status=400)
+
+        # Search by phone number or email
+        from django.db.models import Q
+        users = User.objects.filter(
+            Q(phone_number__icontains=query) | Q(email__icontains=query)
+        ).exclude(role__in=['admin', 'coadmin'])[:10]  # Limit results, exclude admins
+
+        results = [{
+            'id': u.id,
+            'first_name': u.first_name,
+            'last_name': u.last_name,
+            'email': u.email,
+            'phone_number': u.phone_number,
+        } for u in users]
+
+        return Response({'users': results})
+
+
+class SendOTPView(APIView):
+    """Send OTP to user for verification - Admin/CoAdmin only.
+    
+    In demo mode, this just returns success without actually sending an OTP.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        # Only admins and coadmins can send OTP
+        if not getattr(user, 'role', None) in ['admin', 'coadmin']:
+            return Response({'error': 'Permission denied'}, status=403)
+
+        user_id = request.data.get('user_id')
+        phone = request.data.get('phone')
+        email = request.data.get('email')
+
+        if not user_id and not phone and not email:
+            return Response({'error': 'user_id, phone, or email is required'}, status=400)
+
+        # In demo mode, we just return success
+        # In production, this would integrate with an SMS/Email OTP service
+        return Response({
+            'success': True,
+            'message': 'OTP sent successfully (demo mode - use any 6-digit code)'
+        })
+
+
+class VerifyOTPView(APIView):
+    """Verify OTP for user - Admin/CoAdmin only.
+    
+    In demo mode, this accepts ANY value for OTP verification.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        # Only admins and coadmins can verify OTP
+        if not getattr(user, 'role', None) in ['admin', 'coadmin']:
+            return Response({'error': 'Permission denied'}, status=403)
+
+        user_id = request.data.get('user_id')
+        otp = request.data.get('otp')
+
+        if not otp:
+            return Response({'error': 'OTP is required'}, status=400)
+
+        # In demo mode, accept ANY OTP value
+        # In production, this would validate against a stored OTP
+        
+        # If user_id provided, return user data
+        target_user = None
+        if user_id:
+            try:
+                target_user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                pass
+
+        response_data = {
+            'success': True,
+            'message': 'OTP verified successfully',
+            'verified': True,
+        }
+
+        if target_user:
+            response_data['user'] = {
+                'id': target_user.id,
+                'first_name': target_user.first_name,
+                'last_name': target_user.last_name,
+                'email': target_user.email,
+                'phone_number': target_user.phone_number,
+            }
+
+        return Response(response_data)

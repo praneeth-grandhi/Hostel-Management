@@ -1,3 +1,2 @@
 from django.contrib import admin # type: ignore warning
 
-# Register your models here.

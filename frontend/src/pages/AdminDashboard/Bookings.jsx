@@ -1,94 +1,39 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import HostelSidebar from '../../components/HostelSidebar'
-import { FETCH_ROOMS } from '../../Data/request'
-import { DoorOpen, X, Wrench, UserPlus, ArrowLeft, Check, Loader2 } from 'lucide-react'
-
-const STORAGE_KEY = 'hostelManagement:bookings_v1'
-
-function loadBookings() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-  } catch {
-    return []
-  }
-}
-function saveBookings(list) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
-  } catch {}
-}
-
-function sampleBookings() {
-  const now = new Date()
-  const d1 = new Date(now.getTime() - 3 * 24 * 3600 * 1000)
-  const d2 = new Date(now.getTime() + 2 * 24 * 3600 * 1000)
-  const d3 = new Date(now.getTime() + 10 * 24 * 3600 * 1000)
-
-  return [
-    {
-      id: 'B-001',
-      guest: 'Aman Singh',
-      email: 'aman@example.com',
-      phone: '+91 98765 43210',
-      roomNumber: '101',
-      floor: 1,
-      sharingType: 'single',
-      rent: 6000,
-      bookingDate: d1.toISOString().slice(0, 10),
-      checkIn: d2.toISOString().slice(0, 10),
-      checkOut: d3.toISOString().slice(0, 10),
-      status: 'active',
-    },
-    {
-      id: 'B-002',
-      guest: 'Priya Sharma',
-      email: 'priya@example.com',
-      phone: '+91 87654 32109',
-      roomNumber: '202',
-      floor: 2,
-      sharingType: 'double',
-      rent: 9000,
-      bookingDate: new Date().toISOString().slice(0, 10),
-      checkIn: new Date().toISOString().slice(0, 10),
-      checkOut: new Date(now.getTime() + 5 * 24 * 3600 * 1000).toISOString().slice(0, 10),
-      status: 'active',
-    },
-    {
-      id: 'B-003',
-      guest: 'Ravi Kumar',
-      email: 'ravi@example.com',
-      phone: '+91 76543 21098',
-      roomNumber: '102',
-      floor: 1,
-      sharingType: 'triple',
-      rent: 3500,
-      bookingDate: new Date().toISOString().slice(0, 10),
-      checkIn: new Date(now.getTime() + 1 * 24 * 3600 * 1000).toISOString().slice(0, 10),
-      checkOut: new Date(now.getTime() + 4 * 24 * 3600 * 1000).toISOString().slice(0, 10),
-      status: 'active',
-    },
-  ]
-}
+import { FETCH_ROOMS, FETCH_BOOKINGS, SEARCH_USERS, SEND_OTP, VERIFY_OTP, CREATE_BOOKING, DELETE_BOOKING, CHECKOUT_BOOKING } from '../../Data/request'
+import { DoorOpen, X, Wrench, UserPlus, ArrowLeft, Check, Loader2, Search, LogOut } from 'lucide-react'
 
 // New Booking Overlay Component
 const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookings }) => {
-  const [step, setStep] = useState(1) // 1: Room Selection, 2: Guest Details, 3: OTP Verification, 4: Confirmation
+  const [step, setStep] = useState(1) // 1: Room Selection, 2: User Search, 3: OTP Verification, 4: Guest Details, 5: Confirmation
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedRoom, setSelectedRoom] = useState(null)
-  const [guestDetails, setGuestDetails] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    checkIn: new Date().toISOString().slice(0, 10),
-    checkOut: '',
+
+  // React Hook Form for guest details
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
+    defaultValues: {
+      name: '',
+      email: '',
+      phone: '',
+      checkIn: new Date().toISOString().slice(0, 10),
+      checkOut: '',
+    }
   })
+  const guestDetails = watch() // Watch all form values
+
   const [otp, setOtp] = useState('')
   const [otpSent, setOtpSent] = useState(false)
   const [otpVerified, setOtpVerified] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [userFound, setUserFound] = useState(null)
   const [error, setError] = useState('')
+  // New state for user search
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [selectedUser, setSelectedUser] = useState(null)
 
   // Fetch rooms for the hostel
   useEffect(() => {
@@ -161,70 +106,125 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
     setSelectedRoom(room)
   }
 
-  // Send OTP (simulated)
-  const handleSendOtp = () => {
-    if (!guestDetails.email && !guestDetails.phone) {
-      setError('Please enter email or phone number')
+  // Search users by phone or email
+  const handleUserSearch = async () => {
+    if (!searchQuery.trim()) {
+      setError('Please enter a phone number or email to search')
+      return
+    }
+    setSearching(true)
+    setError('')
+    try {
+      const data = await SEARCH_USERS(searchQuery)
+      setSearchResults(data.users || [])
+      if (data.users?.length === 0) {
+        setError('No users found. You can proceed with manual entry.')
+      }
+    } catch (err) {
+      setError('Search failed. Please try again.')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  // Select a user from search results
+  const handleSelectUser = (user) => {
+    setSelectedUser(user)
+    setValue('name', `${user.first_name} ${user.last_name}`.trim())
+    setValue('email', user.email)
+    setValue('phone', user.phone_number || '')
+    setError('')
+  }
+
+  // Send OTP via API
+  const handleSendOtp = async () => {
+    if (!selectedUser && !guestDetails.email && !guestDetails.phone) {
+      setError('Please select a user or enter contact details')
       return
     }
     setError('')
-    setOtpSent(true)
-    // Simulate OTP sent
-    setTimeout(() => {
-      alert('OTP sent! (Use 123456 for demo)')
-    }, 500)
+    try {
+      await SEND_OTP({
+        user_id: selectedUser?.id,
+        email: guestDetails.email || selectedUser?.email,
+        phone: guestDetails.phone || selectedUser?.phone_number,
+      })
+      setOtpSent(true)
+    } catch (err) {
+      setError('Failed to send OTP. Please try again.')
+    }
   }
 
-  // Verify OTP (simulated)
-  const handleVerifyOtp = () => {
+  // Verify OTP via API (accepts any value)
+  const handleVerifyOtp = async () => {
+    if (!otp) {
+      setError('Please enter the OTP')
+      return
+    }
     setVerifying(true)
     setError('')
-    
-    // Simulate OTP verification
-    setTimeout(() => {
-      if (otp === '123456') {
+    try {
+      const data = await VERIFY_OTP({
+        user_id: selectedUser?.id,
+        otp: otp,
+      })
+      if (data.verified) {
         setOtpVerified(true)
-        // Simulate user lookup
-        if (guestDetails.email) {
-          // Check if user exists (simulated)
-          const existingUser = {
-            id: 'user_' + Date.now(),
-            name: guestDetails.name || 'John Doe',
-            email: guestDetails.email,
-            phone: guestDetails.phone || '+91 98765 43210',
-          }
-          setUserFound(existingUser)
-          if (!guestDetails.name) {
-            setGuestDetails(prev => ({ ...prev, name: existingUser.name }))
-          }
+        if (data.user) {
+          setUserFound(data.user)
         }
-        setStep(4)
-      } else {
-        setError('Invalid OTP. Please try again.')
+        setStep(4) // Move to guest details
       }
+    } catch (err) {
+      setError('OTP verification failed. Please try again.')
+    } finally {
       setVerifying(false)
-    }, 1500)
+    }
   }
 
-  // Create booking
-  const handleCreateBooking = () => {
-    const booking = {
-      id: `B-${String(Date.now()).slice(-6)}`,
-      guest: guestDetails.name,
-      email: guestDetails.email,
-      phone: guestDetails.phone,
-      roomNumber: selectedRoom.code,
-      floor: selectedRoom.floor,
-      sharingType: selectedRoom.type,
-      rent: selectedRoom.rent,
-      bookingDate: new Date().toISOString().slice(0, 10),
-      checkIn: guestDetails.checkIn,
-      checkOut: guestDetails.checkOut,
-      status: 'active',
-      userId: userFound?.id,
+  // Create booking via backend API
+  const handleCreateBooking = async () => {
+    setError('')
+    try {
+      // Prepare booking data for backend
+      const bookingData = {
+        user: selectedUser?.id || null,
+        room: selectedRoom.id,
+        hostel: hostelId,
+        check_in_date: guestDetails.checkIn,
+        check_out_date: guestDetails.checkOut || null,
+        rent_amount: selectedRoom.rent,
+        status: 'active',
+        is_verified: true,
+        notes: `Guest: ${guestDetails.name}, Email: ${guestDetails.email}, Phone: ${guestDetails.phone || 'N/A'}`,
+      }
+
+      const response = await CREATE_BOOKING(bookingData)
+
+      // Create local booking object for UI update
+      const localBooking = {
+        id: response.booking_reference || `B-${String(Date.now()).slice(-6)}`,
+        guest: guestDetails.name,
+        email: guestDetails.email,
+        phone: guestDetails.phone,
+        roomNumber: selectedRoom.code,
+        floor: selectedRoom.floor,
+        sharingType: selectedRoom.type,
+        rent: selectedRoom.rent,
+        bookingDate: new Date().toISOString().slice(0, 10),
+        checkIn: guestDetails.checkIn,
+        checkOut: guestDetails.checkOut,
+        status: 'active',
+        userId: selectedUser?.id,
+        backendId: response.id,
+      }
+
+      onBookingCreated(localBooking)
+      onClose()
+    } catch (err) {
+      console.error('Booking creation failed:', err)
+      setError('Failed to create booking. Please try again.')
     }
-    onBookingCreated(booking)
-    onClose()
   }
 
   return (
@@ -245,12 +245,13 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
             <div>
               <h2 className="text-xl font-semibold">
                 {step === 1 && 'Select a Room'}
-                {step === 2 && 'Guest Details'}
+                {step === 2 && 'Search User'}
                 {step === 3 && 'Verify OTP'}
-                {step === 4 && 'Confirm Booking'}
+                {step === 4 && 'Guest Details'}
+                {step === 5 && 'Confirm Booking'}
               </h2>
               <p className="text-blue-100 text-sm mt-0.5">
-                Step {step} of 4
+                Step {step} of 5
               </p>
             </div>
           </div>
@@ -261,9 +262,9 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
 
         {/* Progress Bar */}
         <div className="h-1 bg-gray-200">
-          <div 
-            className="h-full bg-blue-600 transition-all duration-300" 
-            style={{ width: `${(step / 4) * 100}%` }}
+          <div
+            className="h-full bg-blue-600 transition-all duration-300"
+            style={{ width: `${(step / 5) * 100}%` }}
           />
         </div>
 
@@ -327,9 +328,8 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
                           <div
                             key={room.id}
                             onClick={() => handleRoomClick(room)}
-                            className={`relative p-3 rounded-lg border-2 transition-all ${style.bg} ${
-                              isSelected ? 'ring-2 ring-blue-500 ring-offset-2 border-blue-500' : ''
-                            } ${!style.selectable ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            className={`relative p-3 rounded-lg border-2 transition-all ${style.bg} ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 border-blue-500' : ''
+                              } ${!style.selectable ? 'opacity-60 cursor-not-allowed' : ''}`}
                             title={`Room ${room.code} - ${room.isMaintenance ? 'Maintenance' : room.status} - ${room.type} - ₹${room.rent}`}
                           >
                             <div className="flex flex-col items-center">
@@ -368,68 +368,96 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
             </div>
           )}
 
-          {/* Step 2: Guest Details */}
+          {/* Step 2: User Search */}
           {step === 2 && (
-            <div className="max-w-md mx-auto space-y-4">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6">
+            <div className="max-w-lg mx-auto space-y-6">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
                   <strong>Selected Room:</strong> {selectedRoom.code} (Floor {selectedRoom.floor}) - ₹{selectedRoom.rent}/month
                 </p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Guest Name *</label>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Search for User</h3>
+                <p className="text-gray-500 text-sm mt-1">
+                  Search by phone number or email to find existing user
+                </p>
+              </div>
+
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  value={guestDetails.name}
-                  onChange={(e) => setGuestDetails({ ...guestDetails, name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter full name"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleUserSearch()}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter phone number or email..."
                 />
+                <button
+                  onClick={handleUserSearch}
+                  disabled={searching}
+                  className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {searching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                  Search
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
-                <input
-                  type="email"
-                  value={guestDetails.email}
-                  onChange={(e) => setGuestDetails({ ...guestDetails, email: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="guest@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                <input
-                  type="tel"
-                  value={guestDetails.phone}
-                  onChange={(e) => setGuestDetails({ ...guestDetails, phone: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="+91 98765 43210"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Date *</label>
-                  <input
-                    type="date"
-                    value={guestDetails.checkIn}
-                    onChange={(e) => setGuestDetails({ ...guestDetails, checkIn: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+              {/* Search Results */}
+              {searchResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Found {searchResults.length} user(s):</p>
+                  {searchResults.map((user) => (
+                    <div
+                      key={user.id}
+                      onClick={() => handleSelectUser(user)}
+                      className={`p-4 border rounded-lg cursor-pointer transition ${selectedUser?.id === user.id
+                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
+                        : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">{user.first_name} {user.last_name}</p>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                          {user.phone_number && <p className="text-sm text-gray-500">{user.phone_number}</p>}
+                        </div>
+                        {selectedUser?.id === user.id && (
+                          <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Check-out Date</label>
-                  <input
-                    type="date"
-                    value={guestDetails.checkOut}
-                    onChange={(e) => setGuestDetails({ ...guestDetails, checkOut: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Optional - leave blank if unknown</p>
+              )}
+
+              {/* Selected User Info */}
+              {selectedUser && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium">✓ User Selected</p>
+                  <p className="text-sm text-green-700 mt-1">
+                    {selectedUser.first_name} {selectedUser.last_name} - {selectedUser.email}
+                  </p>
                 </div>
+              )}
+
+              {/* Skip search option */}
+              <div className="text-center pt-4 border-t">
+                <p className="text-sm text-gray-500 mb-2">Can't find the user?</p>
+                <button
+                  onClick={() => {
+                    setSelectedUser(null)
+                    setStep(3)
+                  }}
+                  className="text-blue-600 hover:underline text-sm"
+                >
+                  Continue with manual entry →
+                </button>
               </div>
             </div>
           )}
@@ -441,19 +469,30 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <UserPlus className="w-8 h-8 text-blue-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Verify Guest Identity</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Verify Identity</h3>
                 <p className="text-gray-500 text-sm mt-1">
-                  We'll send an OTP to verify and link the booking to the user's account
+                  Send OTP to verify the user before creating booking
                 </p>
               </div>
 
               <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">
-                  <strong>Email:</strong> {guestDetails.email}
-                </p>
-                {guestDetails.phone && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    <strong>Phone:</strong> {guestDetails.phone}
+                {selectedUser ? (
+                  <>
+                    <p className="text-sm text-gray-600">
+                      <strong>User:</strong> {selectedUser.first_name} {selectedUser.last_name}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      <strong>Email:</strong> {selectedUser.email}
+                    </p>
+                    {selectedUser.phone_number && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        <strong>Phone:</strong> {selectedUser.phone_number}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    <strong>Note:</strong> No user selected - proceeding with manual entry
                   </p>
                 )}
               </div>
@@ -477,7 +516,7 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center text-2xl tracking-widest"
                       placeholder="000000"
                     />
-                    <p className="text-xs text-gray-500 mt-2 text-center">Demo OTP: 123456</p>
+                    <p className="text-xs text-gray-500 mt-2 text-center">Demo mode: Enter any 6-digit code</p>
                   </div>
 
                   <button
@@ -506,8 +545,73 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
             </div>
           )}
 
-          {/* Step 4: Confirmation */}
+          {/* Step 4: Guest Details */}
           {step === 4 && (
+            <div className="max-w-md mx-auto space-y-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                <p className="text-sm text-green-800 font-medium">✓ OTP Verified Successfully</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Guest Name *</label>
+                <input
+                  type="text"
+                  {...register('name', { required: 'Guest name is required' })}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Enter full name"
+                />
+                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  {...register('email', {
+                    required: 'Email is required',
+                    pattern: { value: /^\S+@\S+$/i, message: 'Invalid email address' }
+                  })}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="guest@example.com"
+                />
+                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  {...register('phone')}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="+91 98765 43210"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Date *</label>
+                  <input
+                    type="date"
+                    {...register('checkIn', { required: 'Check-in date is required' })}
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.checkIn ? 'border-red-500' : 'border-gray-300'}`}
+                  />
+                  {errors.checkIn && <p className="text-red-500 text-xs mt-1">{errors.checkIn.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Check-out Date</label>
+                  <input
+                    type="date"
+                    {...register('checkOut')}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Optional - leave blank if unknown</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: Confirmation */}
+          {step === 5 && (
             <div className="max-w-md mx-auto space-y-6">
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -519,7 +623,7 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
                 </p>
               </div>
 
-              {userFound && (
+              {(userFound || selectedUser) && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm text-green-800 font-medium">✓ User verified successfully</p>
                   <p className="text-xs text-green-600 mt-1">Booking will be linked to user's account</p>
@@ -556,7 +660,7 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
           >
             Cancel
           </button>
-          
+
           {step === 1 && (
             <button
               onClick={() => setStep(2)}
@@ -566,24 +670,36 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
               Continue
             </button>
           )}
-          
+
           {step === 2 && (
             <button
               onClick={() => {
-                if (!guestDetails.name || !guestDetails.email || !guestDetails.checkIn) {
-                  setError('Please fill in all required fields')
-                  return
+                if (selectedUser) {
+                  setStep(3)
+                } else {
+                  setError('Please search and select a user, or click "Continue with manual entry"')
                 }
-                setError('')
-                setStep(3)
               }}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              disabled={!selectedUser}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
             >
-              Continue to Verify
+              Continue to OTP
             </button>
           )}
-          
+
           {step === 4 && (
+            <button
+              onClick={handleSubmit(() => {
+                setError('')
+                setStep(5)
+              })}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Review Booking
+            </button>
+          )}
+
+          {step === 5 && (
             <button
               onClick={handleCreateBooking}
               className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
@@ -598,37 +714,182 @@ const NewBookingOverlay = ({ hostelId, onClose, onBookingCreated, existingBookin
   )
 }
 
+// Manual Entry Modal Component with React Hook Form
+const ManualEntryModal = ({ onClose, onBookingCreated, bookingsCount }) => {
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    defaultValues: {
+      guest: '',
+      roomNumber: '',
+      floor: '',
+      bookingDate: new Date().toISOString().slice(0, 10),
+      checkIn: new Date().toISOString().slice(0, 10),
+      checkOut: '',
+    }
+  })
+
+  const onSubmit = (data) => {
+    // Validate check-out date if provided
+    if (data.checkOut && new Date(data.checkOut) <= new Date(data.checkIn)) {
+      return // Form validation should handle this
+    }
+
+    const booking = {
+      id: `B-${String(bookingsCount + 1).padStart(3, '0')}`,
+      guest: data.guest,
+      roomNumber: data.roomNumber,
+      floor: parseInt(data.floor),
+      bookingDate: data.bookingDate,
+      checkIn: data.checkIn,
+      checkOut: data.checkOut,
+    }
+
+    onBookingCreated(booking)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-auto">
+        <div className="p-6 border-b sticky top-0 bg-white">
+          <h2 className="text-xl font-semibold text-gray-900">Add New Booking</h2>
+          <p className="text-sm text-gray-500 mt-1">Create a manual booking entry</p>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Guest Name *</label>
+              <input
+                type="text"
+                {...register('guest', { required: 'Guest name is required' })}
+                placeholder="e.g., John Doe"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.guest ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {errors.guest && <p className="text-red-500 text-xs mt-1">{errors.guest.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Room Number *</label>
+              <input
+                type="text"
+                {...register('roomNumber', { required: 'Room number is required' })}
+                placeholder="e.g., 101, 202"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.roomNumber ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {errors.roomNumber && <p className="text-red-500 text-xs mt-1">{errors.roomNumber.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Floor *</label>
+              <input
+                type="number"
+                {...register('floor', { required: 'Floor is required', min: { value: 1, message: 'Floor must be at least 1' } })}
+                placeholder="e.g., 1, 2, 3"
+                min="1"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.floor ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {errors.floor && <p className="text-red-500 text-xs mt-1">{errors.floor.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Booking Date</label>
+              <input
+                type="date"
+                {...register('bookingDate')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Date *</label>
+              <input
+                type="date"
+                {...register('checkIn', { required: 'Check-in date is required' })}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.checkIn ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {errors.checkIn && <p className="text-red-500 text-xs mt-1">{errors.checkIn.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Check-out Date <span className="text-gray-400">(Optional)</span></label>
+              <input
+                type="date"
+                {...register('checkOut')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Leave blank if checkout date is unknown</p>
+            </div>
+          </div>
+
+          <div className="p-6 border-t bg-gray-50 flex items-center justify-end gap-3 sticky bottom-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-100 font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Create Booking
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 const Bookings = () => {
   const [selectedHostelId, setSelectedHostelId] = useState(null)
   const [bookings, setBookings] = useState([])
+  const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
   const [floorFilter, setFloorFilter] = useState('all')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [showNewBookingOverlay, setShowNewBookingOverlay] = useState(false)
-  const [newBooking, setNewBooking] = useState({
-    guest: '',
-    roomNumber: '',
-    floor: '',
-    bookingDate: new Date().toISOString().slice(0, 10),
-    checkIn: new Date().toISOString().slice(0, 10),
-    checkOut: '',
-  })
-  const [formMessage, setFormMessage] = useState('')
+
+  // Fetch bookings from backend API
+  const fetchBookings = async () => {
+    if (!selectedHostelId) {
+      setBookings([])
+      return
+    }
+    setLoading(true)
+    try {
+      const data = await FETCH_BOOKINGS(selectedHostelId)
+      // Transform backend data to match frontend format
+      const transformedBookings = data.map(booking => ({
+        id: booking.booking_reference || booking.id,
+        backendId: booking.id,
+        guest: booking.notes?.match(/Guest: ([^,]+)/)?.[1] || 'Unknown Guest',
+        email: booking.notes?.match(/Email: ([^,]+)/)?.[1] || '',
+        phone: booking.notes?.match(/Phone: ([^,]+)/)?.[1] || '',
+        roomNumber: booking.room_code || `Room ${booking.room}`,
+        floor: booking.room_floor || 1,
+        hostelName: booking.hostel_name,
+        rent: parseFloat(booking.rent_amount) || 0,
+        bookingDate: booking.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+        checkIn: booking.check_in_date,
+        checkOut: booking.check_out_date,
+        status: booking.status,
+        userId: booking.user,
+      }))
+      setBookings(transformedBookings)
+    } catch (err) {
+      console.error('Failed to fetch bookings:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    // Load bookings for selected hostel (currently using localStorage)
-    const existing = loadBookings()
-    if (existing && existing.length) setBookings(existing)
-    else {
-      const s = sampleBookings()
-      saveBookings(s)
-      setBookings(s)
-    }
+    fetchBookings()
   }, [selectedHostelId])
-
-  useEffect(() => saveBookings(bookings), [bookings])
 
   const floors = useMemo(() => {
     const f = new Set(bookings.map((b) => b.floor))
@@ -648,64 +909,26 @@ const Bookings = () => {
     })
   }, [bookings, query, floorFilter, from, to])
 
-  const handleDelete = (id) => {
-    if (!confirm('Delete this booking?')) return
-    setBookings((s) => s.filter((b) => b.id !== id))
+  const handleDelete = async (booking) => {
+    if (!confirm(`Delete booking for ${booking.guest}?`)) return
+    try {
+      await DELETE_BOOKING(booking.backendId)
+      fetchBookings() // Refetch from backend
+    } catch (err) {
+      console.error('Failed to delete booking:', err)
+      alert('Failed to delete booking. Please try again.')
+    }
   }
 
-  const handleAddBooking = () => {
-    // Validation
-    if (!newBooking.guest.trim()) {
-      setFormMessage('Guest name is required.')
-      return
+  const handleCheckout = async (booking) => {
+    if (!confirm(`Checkout ${booking.guest}? This will mark the room as available.`)) return
+    try {
+      await CHECKOUT_BOOKING(booking.backendId)
+      fetchBookings() // Refetch from backend
+    } catch (err) {
+      console.error('Failed to checkout booking:', err)
+      alert('Failed to checkout. Please try again.')
     }
-    if (!newBooking.roomNumber.trim()) {
-      setFormMessage('Room number is required.')
-      return
-    }
-    if (!newBooking.floor) {
-      setFormMessage('Floor is required.')
-      return
-    }
-    if (!newBooking.checkIn) {
-      setFormMessage('Check-in date is required.')
-      return
-    }
-    // Check-out is now optional
-    if (newBooking.checkOut && new Date(newBooking.checkOut) <= new Date(newBooking.checkIn)) {
-      setFormMessage('Check-out must be after check-in.')
-      return
-    }
-
-    // Generate new ID
-    const id = `B-${String(bookings.length + 1).padStart(3, '0')}`
-
-    // Create booking object
-    const booking = {
-      id,
-      guest: newBooking.guest,
-      roomNumber: newBooking.roomNumber,
-      floor: parseInt(newBooking.floor),
-      bookingDate: newBooking.bookingDate,
-      checkIn: newBooking.checkIn,
-      checkOut: newBooking.checkOut,
-    }
-
-    // Add to bookings
-    setBookings([booking, ...bookings])
-
-    // Reset form
-    setNewBooking({
-      guest: '',
-      roomNumber: '',
-      floor: '',
-      bookingDate: new Date().toISOString().slice(0, 10),
-      checkIn: new Date().toISOString().slice(0, 10),
-      checkOut: '',
-    })
-
-    setFormMessage('')
-    setShowAddForm(false)
   }
 
   const exportCSV = () => {
@@ -769,7 +992,7 @@ const Bookings = () => {
               New Booking
             </button>
             <button
-              onClick={() => { setShowAddForm(true); setFormMessage('') }}
+              onClick={() => setShowAddForm(true)}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -794,17 +1017,16 @@ const Bookings = () => {
                   <th className="p-3">ID</th>
                   <th className="p-3">Guest</th>
                   <th className="p-3">Room #</th>
-                  <th className="p-3">Floor</th>
-                  <th className="p-3">Booking Date</th>
                   <th className="p-3">Check-in</th>
                   <th className="p-3">Check-out</th>
+                  <th className="p-3">Status</th>
                   <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-12 text-center">
+                    <td colSpan={7} className="p-12 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                           <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -819,18 +1041,40 @@ const Bookings = () => {
                   filtered.map((b) => (
                     <tr key={b.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-medium">{b.id}</td>
-                      <td className="p-3">{b.guest}</td>
-                      <td className="p-3">{b.roomNumber}</td>
-                      <td className="p-3">{b.floor}</td>
-                      <td className="p-3">{b.bookingDate}</td>
+                      <td className="p-3">
+                        <div>
+                          <p className="font-medium">{b.guest}</p>
+                          {b.email && <p className="text-xs text-gray-500">{b.email}</p>}
+                        </div>
+                      </td>
+                      <td className="p-3 font-medium">{b.roomNumber}</td>
                       <td className="p-3">{b.checkIn}</td>
                       <td className="p-3">{b.checkOut || '-'}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${b.status === 'active'
+                          ? 'bg-green-100 text-green-700'
+                          : b.status === 'completed'
+                            ? 'bg-gray-100 text-gray-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                          {b.status === 'active' ? 'Active' : b.status === 'completed' ? 'Checked Out' : b.status}
+                        </span>
+                      </td>
                       <td className="p-3 text-right">
                         <div className="inline-flex items-center gap-2">
-                          <button onClick={() => alert(JSON.stringify(b, null, 2))} className="px-2 py-1 border rounded text-sm hover:bg-gray-100">
-                            View
-                          </button>
-                          <button onClick={() => handleDelete(b.id)} className="px-2 py-1 border rounded text-sm text-red-600 hover:bg-red-50">
+                          {b.status === 'active' && (
+                            <button
+                              onClick={() => handleCheckout(b)}
+                              className="px-2 py-1 border border-green-300 rounded text-sm text-green-600 hover:bg-green-50 flex items-center gap-1"
+                            >
+                              <LogOut className="w-3 h-3" />
+                              Checkout
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(b)}
+                            className="px-2 py-1 border rounded text-sm text-red-600 hover:bg-red-50"
+                          >
                             Delete
                           </button>
                         </div>
@@ -846,102 +1090,13 @@ const Bookings = () => {
 
       {/* Add Booking Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-auto">
-            <div className="p-6 border-b sticky top-0 bg-white">
-              <h2 className="text-xl font-semibold text-gray-900">Add New Booking</h2>
-              <p className="text-sm text-gray-500 mt-1">Create a manual booking entry</p>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {formMessage && (
-                <div className={`p-3 rounded-lg text-sm ${formMessage.includes('required') || formMessage.includes('must be') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-                  {formMessage}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Guest Name *</label>
-                <input
-                  type="text"
-                  value={newBooking.guest}
-                  onChange={(e) => setNewBooking({ ...newBooking, guest: e.target.value })}
-                  placeholder="e.g., John Doe"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Room Number *</label>
-                <input
-                  type="text"
-                  value={newBooking.roomNumber}
-                  onChange={(e) => setNewBooking({ ...newBooking, roomNumber: e.target.value })}
-                  placeholder="e.g., 101, 202"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Floor *</label>
-                <input
-                  type="number"
-                  value={newBooking.floor}
-                  onChange={(e) => setNewBooking({ ...newBooking, floor: e.target.value })}
-                  placeholder="e.g., 1, 2, 3"
-                  min="1"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Booking Date</label>
-                <input
-                  type="date"
-                  value={newBooking.bookingDate}
-                  onChange={(e) => setNewBooking({ ...newBooking, bookingDate: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Date *</label>
-                <input
-                  type="date"
-                  value={newBooking.checkIn}
-                  onChange={(e) => setNewBooking({ ...newBooking, checkIn: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Check-out Date <span className="text-gray-400">(Optional)</span></label>
-                <input
-                  type="date"
-                  value={newBooking.checkOut}
-                  onChange={(e) => setNewBooking({ ...newBooking, checkOut: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">Leave blank if checkout date is unknown</p>
-              </div>
-            </div>
-
-            <div className="p-6 border-t bg-gray-50 flex items-center justify-end gap-3 sticky bottom-0">
-              <button
-                onClick={() => { setShowAddForm(false); setFormMessage('') }}
-                className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-100 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddBooking}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-              >
-                Create Booking
-              </button>
-            </div>
-          </div>
-        </div>
+        <ManualEntryModal
+          onClose={() => setShowAddForm(false)}
+          onBookingCreated={() => {
+            fetchBookings() // Refetch from backend
+          }}
+          bookingsCount={bookings.length}
+        />
       )}
 
       {/* New Booking Overlay */}
@@ -950,8 +1105,8 @@ const Bookings = () => {
           hostelId={selectedHostelId}
           existingBookings={bookings}
           onClose={() => setShowNewBookingOverlay(false)}
-          onBookingCreated={(booking) => {
-            setBookings([booking, ...bookings])
+          onBookingCreated={() => {
+            fetchBookings() // Refetch from backend
           }}
         />
       )}

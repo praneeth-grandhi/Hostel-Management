@@ -1,6 +1,10 @@
 from django.urls import path # type: ignore warning
 from rest_framework_simplejwt.views import TokenRefreshView # type: ignore warning
-from .views import ChangePasswordView, CoAdminDeleteView, CoAdminListCreateView, CoAdminUpdateView, CustomUserLoginView, RegisterUserView, RegisterAdminWithHostelView, UserPermissionsView, UserProfileView
+from .views import (
+    ChangePasswordView, CoAdminDeleteView, CoAdminListCreateView, CoAdminUpdateView,
+    CustomUserLoginView, RegisterUserView, RegisterAdminWithHostelView, 
+    UserPermissionsView, UserProfileView, UserSearchView, SendOTPView, VerifyOTPView
+)
 
 urlpatterns = [
     path('register/', RegisterUserView.as_view(), name='register'),
@@ -13,5 +17,9 @@ urlpatterns = [
     path('co-admins/<int:pk>/', CoAdminDeleteView.as_view(), name='co-admin-delete'),
     path('co-admins/<int:pk>/update/', CoAdminUpdateView.as_view(), name='co-admin-update'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # User search and OTP endpoints for admin booking flow
+    path('search/', UserSearchView.as_view(), name='user-search'),
+    path('otp/send/', SendOTPView.as_view(), name='send-otp'),
+    path('otp/verify/', VerifyOTPView.as_view(), name='verify-otp'),
 ]
 

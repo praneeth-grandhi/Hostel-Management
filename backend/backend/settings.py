@@ -44,7 +44,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'accounts',
-    'hostels'
+    'hostels',
+    'bookings',
 ]
 
 MIDDLEWARE = [
